@@ -1,0 +1,35 @@
+# HBM3 PIM Baseline Configuration (FP16 Path - No Compression)
+# 
+# This configuration represents the Samsung HBM-PIM style baseline:
+# - Standard FP16 data path
+# - No in-situ KV-Cache compression
+# - Dequantization overhead on CPU side
+#
+# Used for comparison with the optimized Integer-Only PIM architecture.
+
+Frontend:
+  impl: ReadWriteTrace
+  path: /ramulator2/traces/current.trace
+  clock_ratio: 1
+
+MemorySystem:
+  impl: GenericDRAM
+  clock_ratio: 1
+  AddrMapper:
+    impl: ChRaBaRoCo
+  DRAM:
+    impl: HBM3PIM_Baseline
+    org:
+      preset: HBM3_8Gb
+    timing:
+      preset: HBM3_2Gbps
+      nDEQUANT: 8    # Dequantization overhead cycles
+  Controller:
+    impl: Generic
+    Scheduler:
+      impl: FRFCFS
+    RefreshManager:
+      impl: AllBank
+    RowPolicy:
+      impl: OpenRowPolicy
+    # Note: No KVCompression plugin in baseline

@@ -1,0 +1,41 @@
+# HBM3 PIM KV-Cache Compression Configuration
+# 
+# This configuration enables the Integer-Only PIM with in-situ KV-Cache compression:
+# - INT4 quantization for KV-Cache (4:1 compression)
+# - Outlier-aware processing (1% high-precision path)
+# - Near-memory compression reduces bandwidth by 75%
+#
+# Compare against hbm3_pim_baseline.yaml for performance evaluation.
+
+Frontend:
+  impl: ReadWriteTrace
+  path: /ramulator2/traces/current.trace
+  clock_ratio: 1
+
+MemorySystem:
+  impl: GenericDRAM
+  clock_ratio: 1
+  AddrMapper:
+    impl: ChRaBaRoCo
+  DRAM:
+    impl: HBM3PIM
+    org:
+      preset: HBM3_8Gb
+    timing:
+      preset: HBM3_2Gbps
+      nQUANT: 10       # PIM quantization cycles
+      nOUTLIER: 15     # High-precision path cycles
+  Controller:
+    impl: Generic
+    Scheduler:
+      impl: FRFCFS
+    RefreshManager:
+      impl: AllBank
+    RowPolicy:
+      impl: OpenRowPolicy
+    plugins:
+      - ControllerPlugin:
+          impl: KVCompression
+          compression_ratio: 4
+          outlier_ratio: 0.01
+          bytes_per_access: 64

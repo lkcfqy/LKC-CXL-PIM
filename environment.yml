@@ -1,0 +1,21 @@
+name: lkcpim
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  - python=3.10
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1
+  - numpy
+  - matplotlib
+  - seaborn
+  - pandas
+  - pip
+  - pip:
+    - transformers
+    - accelerate
+    - auto-gptq
+    - optimum

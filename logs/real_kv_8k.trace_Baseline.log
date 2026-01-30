@@ -1,0 +1,59 @@
+ Container ramulator2-app-run-44a159a547a5 Creating 
+ Container ramulator2-app-run-44a159a547a5 Created 
+[Ramulator::ReadWriteTrace] [info] Loading trace file /ramulator2/traces/current.trace ...
+[Ramulator::ReadWriteTrace] [info] Loaded 1380960 lines.
+[GenericDRAMController] Setup starting for channel 0...
+Frontend:
+  impl: ReadWriteTrace
+
+MemorySystem:
+  impl: GenericDRAM
+  total_num_other_requests: 112029
+  total_num_write_requests: 0
+  total_num_read_requests: 0
+  memory_system_cycles: 1380959
+  DRAM:
+    impl: HBM3PIM_Baseline
+  AddrMapper:
+    impl: ChRaBaRoCo
+
+
+  Controller:
+    impl: Generic
+    id: Channel 0
+    avg_write_latency_0: 12213.3906
+    avg_read_latency_0: 34.4703712
+    read_queue_len_avg_0: 33.878067
+    write_latency_0: 20518496
+    write_queue_len_0: 20681362
+    queue_len_0: 67465582
+    num_other_reqs_0: 0
+    num_write_reqs_0: 1680
+    read_latency_0: 47544296
+    priority_queue_len_avg_0: 0
+    row_hits_0: 0
+    priority_queue_len_0: 0
+    row_misses_0: 91
+    row_conflicts_0: 111887
+    read_row_misses_0: 39
+    queue_len_avg_0: 48.8541527
+    read_row_conflicts_core_0: 0
+    read_row_hits_0: 0
+    write_queue_len_avg_0: 14.9760866
+    read_row_conflicts_0: 110278
+    write_row_misses_0: 52
+    write_row_conflicts_0: 1609
+    read_queue_len_0: 46784220
+    write_row_hits_0: 0
+    read_row_hits_core_0: 0
+    read_row_misses_core_0: 0
+    num_read_reqs_0: 1379280
+    Scheduler:
+      impl: FRFCFS
+    RefreshManager:
+      impl: AllBank
+    RowPolicy:
+      impl: OpenRowPolicy
+
+
+

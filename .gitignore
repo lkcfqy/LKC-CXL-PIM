@@ -1,0 +1,21 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+
+# Environments
+env/
+.venv/
+
+# Large Data
+traces/
+
+# Project Specific
+.gemini/
+ramulator2/build/
+ramulator2/ext/
+ramulator2/ramulator2
+ramulator2/autobuild.sh
+
+# IDE
+.vscode/

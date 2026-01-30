@@ -1,0 +1,36 @@
+# HBM3 Configuration for PIM Research
+# 面向长上下文LLM的全整型PIM推理架构研究配置
+
+Frontend:
+  impl: SimpleO3
+  clock_ratio: 4
+  num_expected_insts: 500000
+  traces: 
+    - example_inst.trace
+
+  Translation:
+    impl: RandomTranslation
+    max_addr: 8589934592
+
+MemorySystem:
+  impl: GenericDRAM
+  clock_ratio: 1
+
+  DRAM:
+    impl: HBM3
+    org:
+      preset: HBM3_8Gb
+    timing:
+      preset: HBM3_2Gbps
+
+  Controller:
+    impl: Generic
+    Scheduler:
+      impl: FRFCFS
+    RefreshManager:
+      impl: AllBank
+    RowPolicy:
+      impl: OpenRowPolicy
+
+  AddrMapper:
+    impl: ChRaBaRoCo

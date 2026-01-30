@@ -1,0 +1,25 @@
+# HBM3 Baseline Simulation Config  
+Frontend:
+  impl: ReadWriteTrace
+  path: /home/fqy/project/LKC-CXL-PIM/traces/real_kv_4k.trace
+  clock_ratio: 1
+
+MemorySystem:
+  impl: GenericDRAM
+  clock_ratio: 1
+  AddrMapper:
+    impl: ChRaBaRoCo
+  DRAM:
+    impl: HBM3
+    org:
+      preset: HBM3_8Gb
+    timing:
+      preset: HBM3_2Gbps
+  Controller:
+    impl: Generic
+    Scheduler:
+      impl: FRFCFS
+    RefreshManager:
+      impl: AllBank
+    RowPolicy:
+      impl: OpenRowPolicy
