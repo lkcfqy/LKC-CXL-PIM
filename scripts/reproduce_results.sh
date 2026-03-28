@@ -73,13 +73,21 @@ run_sim() {
     #   write_latency_avg_0: ... (our new stat)
     #   row_misses_0: ...
     
-    local read_lat=$(grep "avg_read_latency_0" "$LOG_FILE" | awk '{print $2}')
-    local write_lat=$(grep "avg_write_latency_0" "$LOG_FILE" | awk '{print $2}')
-    local row_miss=$(grep "row_misses_0" "$LOG_FILE" | awk '{print $2}') # total misses
+    local read_lat=$(awk '/^[ \t]*avg_read_latency_0:/ {print $2}' "$LOG_FILE")
+    local write_lat=$(awk '/^[ \t]*avg_write_latency_0:/ {print $2}' "$LOG_FILE")
+    
+    # Properly extract row_misses_0 and row_conflicts_0
+    local misses=$(awk '/^[ \t]*row_misses_0:/ {print $2}' "$LOG_FILE")
+    local conflicts=$(awk '/^[ \t]*row_conflicts_0:/ {print $2}' "$LOG_FILE")
+    misses=${misses:-0}
+    conflicts=${conflicts:-0}
+    
+    # In OpenRowPolicy, total misses = page empty + page conflict
+    local row_miss=$((misses + conflicts))
     
     echo "  Read Latency: $read_lat"
     echo "  Write Latency: $write_lat"
-    echo "  Row Misses: $row_miss"
+    echo "  Row Misses: $row_miss ($misses misses + $conflicts conflicts)"
     
     echo "$trace_name,$scenario_name,$read_lat,$write_lat,$row_miss" >> $OUTPUT_CSV
 }

@@ -151,39 +151,42 @@
 
 ---
 
-## 📅 阶段 4：论文与投稿 (第 8 个月)
+## 📅 阶段 4：顶会级预印本与博士申请"敲门砖"升级 (第 8 个月)
 
-**目标：** 投中 ISPASS 或 IEEE CAL。
+**目标：** 将现有的 Extended Abstract 打造成 12 页以上的完美顶会 (如 ISCA/MICRO 级别) 论文，用于 arXiv 发布和申请博士。
 
-### 论文撰写
+### 论文重构与升级计划 (当前进行中)
 
-- [ ] **论文框架**
-  - [ ] 确定论文标题和架构名称
-  - [ ] 撰写 Abstract
-  - [ ] 撰写 Introduction
-  - [ ] 撰写 Background & Motivation
-  - [ ] 撰写 Architecture Design
-  - [ ] 撰写 Evaluation
-  - [ ] 撰写 Discussion (包含 CXL-PIM 扩展讨论)
-  - [ ] 撰写 Conclusion
+- [x] **框架重组与排版环境搭建 (LaTeX Setup)**
+  - [x] 补全所有顶会标准空章节 (Intro, Background, Motivation, Design, Evaluation, Related Work, Conclusion)
+  - [x] 引入 `booktabs`, `algorithm`, `subfigure` 等高级排版宏包
+  - [x] 将所有 Python 生成的精美图表 (fig1~fig6) 插入文档作为起草锚点
 
-- [x] **图表制作**
-  - [x] 架构总览图 (见 architecture_diagrams.md)
-  - [x] iNLU 模块设计图 (见 fig8_inlu_schematic.pdf)
-  - [x] Outlier-Aware Logic 示意图 (见 fig9_outlier_schematic.pdf)
-  - [x] 性能对比图表 (见 figures/fig5)
-  - [x] 能耗对比图表 (见 figures/fig2)
+- [x] **Introduction & Motivation 深度扩写**
+  - [x] 结合 `fig1_latency_breakdown` 和 `fig3_kv_cache_scaling`，极其详尽地阐述长上下文的 IO 墙问题
+  - [x] 列出 3-4 点带有明确核心定量数据 (如 98.9% IO Latency Drop, 17% Area Savings等) 的 Core Contributions
+  
+- [x] **硬件微架构深度填充 (Microarchitecture & Datapath)**
+  - [x] 增补与 SystemVerilog RTL 相对应的底层微架构控制流描述
+  - [x] 补充 iNLU 近似多项式算法的数学公式推导块
+  - [x] 针对 Outlier Buffer，补全溢出处理机制 (Buffer Overflow Handling) 等评委必问的极端 Case 讨论
 
-### 投稿准备
+- [x] **全维度评价分析 (Evaluation Expansion)**
+  - [x] 建立极其详尽的 **System Configuration Table** (含 CPU频率、DRAM时序、CXL参数、综合节点等)
+  - [x] **Performance:** 深入分析 `fig5_performance_speedup` 延迟消减的根源 
+  - [x] **Accuracy Fidelity (重中之重):** 引入 `fig4_inlu_accuracy` 分析，从数学与数据上证明 iNLU 替换浮点单元不降智 (Perplexity / MSE 分析)
+  - [x] **Area & Power:** 结合 `fig6_area_breakdown` 和 `fig2_energy_comparison`，量化 17% 的面积红利与能耗改善
 
-- [ ] **目标会议/期刊**
-  - [ ] ISPASS 2027（首选，3-4月截稿）
-  - [ ] IEEE CAL / IEEE TC（备选，快速发表）
+- [x] **相关工作、引言与包装 (Academic Packaging)**
+  - [x] 撰写 0.5~1 页的 Related Work (针对近 3 年的 PIM, CXL Expansion, Quantization Literature)
+  - [x] 拓展并补齐了前沿高质量参考文献 (CXL, HBM-PIM, LLM 量化)
+  - [x] 完善学术级英文润色与图表 Caption，使其具备顶刊美感
 
-- [ ] **投稿材料**
-  - [ ] 论文终稿
-  - [ ] Cover Letter
-  - [ ] Supplementary Materials
+### 博士申请准备
+
+- [ ] **展示与套磁材料**
+  - [ ] 整理代码库并附带一键复现 Script (证明工作不仅是 Paper，还有扎实的 Systems Work)
+  - [ ] 制作供组会/套磁用的幻灯片 (提取核心图表)
 
 ---
 
@@ -211,11 +214,11 @@
 | 阶段 1 | 第 1-2 月 | ✅ 完成 | 100% |
 | 阶段 2 | 第 3-5 月 | ✅ 完成 | 100% |
 | 阶段 3 | 第 6-7 月 | ✅ 完成 | 100% |
-| 阶段 4 | 第 8 月 | 🔄 进行中 | 25% |
+| 阶段 4 | 第 8 月 | ✅ 核心撰写完成 | 95% |
 
 ---
 
-**最后更新时间：** 2026-01-23
+**最后更新时间：** 2026-03-28
 
 > [!TIP]
 > 定期更新此文件中的复选框状态，标记完成项为 `[x]`，进行中项为 `[/]`

@@ -5,6 +5,7 @@ import numpy as np
 import os
 
 def visualize_rtl_results():
+    os.makedirs('paper_assets/notes', exist_ok=True)
     # 1. 加载 RTL 仿真结果
     rtl_data_path = 'paper_assets/data/inlu_rtl_simulation_results.csv'
     if not os.path.exists(rtl_data_path):
