@@ -73,8 +73,8 @@ run_sim() {
     #   write_latency_avg_0: ... (our new stat)
     #   row_misses_0: ...
     
-    local read_lat=$(awk '/^[ \t]*avg_read_latency_0:/ {print $2}' "$LOG_FILE")
-    local write_lat=$(awk '/^[ \t]*avg_write_latency_0:/ {print $2}' "$LOG_FILE")
+    local read_lat=$(awk '/^[ \t]*read_latency_0:/ {print $2}' "$LOG_FILE")
+    local write_lat=$(awk '/^[ \t]*write_latency_0:/ {print $2}' "$LOG_FILE")
     
     # Properly extract row_misses_0 and row_conflicts_0
     local misses=$(awk '/^[ \t]*row_misses_0:/ {print $2}' "$LOG_FILE")

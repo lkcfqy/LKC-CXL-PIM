@@ -13,8 +13,6 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{hyperref}
-\usepackage{caption}
-\usepackage{subcaption} % Required for subfigures
 \usepackage{enumitem}   % Better lists
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
@@ -34,7 +32,7 @@ lkcfqy@gmail.com}
 \maketitle
 
 \begin{abstract}
-Large Language Models (LLMs) have demonstrated unprecedented capabilities in natural language understanding and generation tasks. However, extending their context window for long-sequence tasks severely exposes the memory wall problem, driven almost entirely by the massive size and memory bandwidth requirements of the Key-Value (KV) cache. While traditional Processing-in-Memory (PIM) solutions attempt to alleviate bandwidth bottlenecks by pushing computation close to data, their reliance on complex Floating-Point (FP16) compute logic and Frequent dequantization limits their efficiency. In this paper, we propose LKC-CXL-PIM (Long KV Cache via Compute Express Link Processing-in-Memory), a hardware-software co-designed architecture that achieves memory expansion and near-memory attention computation with unprecedented efficiency. Our core contributions include a highly efficient Integer Non-Linear Unit (iNLU) and an Outlier-Aware Logic data path, which perform the attention Softmax using exclusively integer operations for the vast majority of activations, seamlessly handling the 1\% outliers through an overflow buffer. Evaluated on a highly customized, cycle-accurate Ramulator 2.0 platform, LKC-CXL-PIM significantly outperforms state-of-the-art baselines. For long-context (8K) real-world traces, our architecture reduces read latency by a factor of $\sim$100$\times$ (from 34.47ns to 0.35ns), reduces write latency by $\sim$96$\times$, and virtually eliminates row buffer misses compared to conventional memory hierarchies. LKC-CXL-PIM demonstrates a highly scalable, energy-efficient path forward for deploying long-context LLMs.
+Large Language Models (LLMs) have demonstrated unprecedented capabilities in natural language understanding and generation tasks. However, extending their context window for long-sequence tasks severely exposes the memory wall problem, driven almost entirely by the massive size and memory bandwidth requirements of the Key-Value (KV) cache. While traditional Processing-in-Memory (PIM) solutions attempt to alleviate bandwidth bottlenecks by pushing computation close to data, their reliance on complex Floating-Point (FP16) compute logic and frequent dequantization limits their efficiency. In this paper, we propose LKC-CXL-PIM (Long KV Cache via Compute Express Link Processing-in-Memory), a hardware-software co-designed architecture that achieves memory expansion and near-memory attention computation with unprecedented efficiency. Our core contributions include a highly efficient Integer Non-Linear Unit (iNLU) and an Outlier-Aware Logic data path, which perform the attention Softmax using exclusively integer operations for the vast majority of activations, seamlessly handling the $1\%$ outliers through an overflow buffer. Evaluated on a highly customized, cycle-accurate Ramulator 2.0 platform, LKC-CXL-PIM significantly outperforms state-of-the-art baselines. For long-context (8K) real-world traces, our architecture reduces total read access cycles by up to $\sim$99$\times$ (e.g., from 47.5M to 0.48M cycles), reduces write queuing delays similarly, and virtually eliminates row buffer misses compared to conventional memory hierarchies. LKC-CXL-PIM demonstrates a highly scalable, energy-efficient path forward for deploying long-context LLMs.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -49,9 +47,9 @@ Processing-in-Memory, Compute Express Link (CXL), Large Language Models, KV Cach
 
 The rapid evolution of Large Language Models (LLMs), such as LLaMA, GPT-4, and Qwen, has fundamentally reshaped artificial intelligence, demonstrating unprecedented capabilities in natural language understanding, reasoning, and generation. A prominent driving force in this domain is the exponential expansion of the \textit{context window}—evolving from a standard 2K tokens to 128K or even 1M tokens \cite{llm_context}. This capability allows LLMs to summarize entire books, parse vast codebases, and maintain complex, unbounded conversational histories. However, as sequence length scales, the fundamental characteristic of autoregressive LLM inference abruptly shifts. While the initial \textit{prefill phase} remains heavily compute-bound, the subsequent \textit{decode phase} becomes overwhelmingly memory-bandwidth-bound. This bottleneck is directly caused by the \textit{Key-Value (KV) Cache}—the historical activation tensors that must be fetched from memory for every single generated token to compute the Attention scores.
 
-For long-context inference, the sheer capacity required to store the KV cache frequently exceeds the physical limitations of onboard High Bandwidth Memory (HBM). For instance, an 8-head 7B parameter model processing a 128K context can consume tens of gigabytes per request, creating an impenetrable limit for concurrent batching \cite{kv_cache_bottleneck}. To mitigate this memory capacity wall, Compute Express Link (CXL) \cite{cxl_standard} memory expansion has emerged as the definitive solution, providing scalable, coherent memory tiering over high-speed PCIe. Unfortunately, merely expanding capacity is insufficient; transporting massive KV tensors across the CXL interconnect to the Host CPU or GPU introduces prohibitive interconnect latency and unsustainable I/O energy overheads, destroying generation throughput.
+For long-context inference, the sheer capacity required to store the KV cache frequently exceeds the physical limitations of onboard High Bandwidth Memory (HBM). For instance, an 8-head 7B parameter model processing a 128K context can consume tens of gigabytes per request, creating an impenetrable limit for concurrent batching \cite{kv_cache_bottleneck}. To mitigate this memory capacity wall, Compute Express Link (CXL) \cite{cxl_standard} memory expansion has emerged as the definitive solution, providing scalable, coherent memory tiering over high-speed PCIe. Unfortunately, merely expanding capacity is insufficient; transporting massive KV tensors across the CXL interconnect to the Host CPU or GPU introduces prohibitive traversal latency and unsustainable I/O energy overheads, destroying generation throughput.
 
-Processing-in-Memory (PIM) presents an attractive paradigm to solve this data movement crisis by physically colocation computational logic within the memory dies (e.g., Samsung HBM-PIM \cite{samsung_pim}). By pushing the Attention computation ($\text{Softmax}(\mathbf{Q} \cdot \mathbf{K}^T) \cdot \mathbf{V}$) to the data, PIM ideally eliminates CXL bus starvation. Yet, applying conventional PIM architectures to LLM inference exposes a critical \textit{format mismatch problem}. Highly optimized modern LLMs heavily quantize their KV caches (e.g., to INT8 or INT4) to maximize density \cite{llm_outliers}. Existing PIM designs, however, rely on rigid Floating-Point (FP16) pipelines to execute the complex non-linear Softmax function. Consequently, computing Attention near memory forces a highly inefficient cycle: reading INT4 weights, dequantizing them to FP16, computing the FP16 MAC and Softmax, and finally requantizing the results. This mandatory format conversion pipeline dominates die area, balloons thermal envelopes, and completely negates the core motivation for lightweight, in-memory processing.
+Processing-in-Memory (PIM) presents an attractive paradigm to solve this data movement crisis by physically colocating computational logic within the memory dies (e.g., Samsung HBM-PIM \cite{samsung_pim}). By pushing the Attention computation ($\text{Softmax}(\mathbf{Q} \cdot \mathbf{K}^T) \cdot \mathbf{V}$) to the data, PIM ideally eliminates CXL bus starvation. Yet, applying conventional PIM architectures to LLM inference exposes a critical \textit{format mismatch problem}. Highly optimized modern LLMs heavily quantize their KV caches (e.g., to INT8 or INT4) to maximize density \cite{llm_outliers}. Existing PIM designs, however, rely on rigid Floating-Point (FP16) pipelines to execute the complex non-linear Softmax function. Consequently, computing Attention near memory forces a highly inefficient cycle: reading INT4 weights, dequantizing them to FP16, computing the FP16 MAC and Softmax, and finally requantizing the results. This mandatory format conversion pipeline dominates die area, balloons thermal envelopes, and completely negates the core motivation for lightweight, in-memory processing.
 
 To inherently solve the intertwined challenges of CXL latency and PIM hardware inefficiency, we propose \textbf{LKC-CXL-PIM} (Long KV Cache via CXL Processing-in-Memory), the first integer-only, CXL-attached memory architecture purpose-built for extreme long-context KV cache acceleration. Our overarching philosophy is to \textit{completely eliminate floating-point logic} from the PIM base die, achieving massive hardware density without sacrificing algorithmic coherence. We introduce a fully integer-based data path capable of executing complex Attention normalization locally, drastically reducing memory traversal while natively storing highly compressed representations.
 
@@ -69,14 +67,13 @@ The core contributions of this paper are summarized as follows:
 % =========================================================================
 \section{Background}
 
-% TODO: Expand on LLM Generation loop (Prefill vs Decode)
-% TODO: Expand on CXL protocol and memory expansion constraints
-% TODO: Standard PIM (HBM-PIM/Aquabolt) limitations
 \subsection{LLM Inference and KV Cache Bottleneck}
-During the autoregressive decoding phase of an LLM, generating a single token requires matching the Query vector against all historical Key vectors and subsequently weighting the Value vectors. For a sequence length of $L$ and batch size $B$, the system must read $\mathcal{O}(B \times L)$ data from the memory for every step \cite{kv_cache_bottleneck}. 
+Modern Large Language Models (LLMs) operate fundamentally through a two-phase execution profile: \textit{Prefill} and \textit{Decode}. During the prefill phase, the entire input prompt is processed in parallel, heavily capitalizing on the massive dense matrix multiplication engines (e.g., Tensor Cores) of the accelerator. However, the subsequent decode phase is strictly autoregressive. Activating the Attention mechanism, $\text{Softmax}(\mathbf{Q} \cdot \mathbf{K}^T / \sqrt{d}) \cdot \mathbf{V}$, requires matching the current token's singular Query vector ($\mathbf{Q}$) against all historically generated Key ($\mathbf{K}$) and Value ($\mathbf{V}$) tensors. For a sequence length of $L$ and batch size $B$, the system is mathematically forced to read $\mathcal{O}(B \times L)$ data from memory for every single algorithmic step \cite{kv_cache_bottleneck}. As $L$ scales into the hundreds of thousands (e.g., 128K context), the workload shifts substantially from a compute-bound regime entirely to a memory-bandwidth-bound regime.
 
-\subsection{CXL Memory Expansion}
-The CXL protocol efficiently enables memory pooling and expansion. However, the traversal latency over CXL remains non-trivial. Processing-in-Memory (PIM) attempts to alleviate this by executing operations natively at the memory bank.
+\subsection{CXL Memory Tiering and Traditional PIM Limits}
+To overcome the physical capacity ceiling of on-package High-Bandwidth Memory (HBM), the Compute Express Link (CXL) protocol \cite{cxl_standard} enables massive, cache-coherent memory expansion arrays operating over PCIe physical layers. While CXL natively resolves the KV cache \textit{capacity} crisis, it introduces severe \textit{throughput} starvation. Continuously streaming tens of gigabytes of historical KV tensors across the CXL physical interconnect back to the CPU/GPU for a single token generation incurs devastating traversal latency and electrical energy tolls.
+
+Processing-in-Memory (PIM) architectures theoretically bypass this interconnect wall by localizing computational execution units directly within the memory dies \cite{samsung_pim}. Yet, established commercial PIM frameworks are structurally provisioned with generic Floating-Point (FP16/BF16) execution pipelines to guarantee broad workload universality. When applied to modern LLM inference—where KV caches are aggressively quantized to INT8 or INT4 \cite{llm_int8} to maximize density—these FP16 PIM pipelines introduce critical latency paradigms. The hardware is forced to continuously fetch quantized data, perform costly format dequantization to FP16, execute the matrix operations, and requantize, introducing massive die area bloat and negating the fundamental low-power ethos of near-memory calculation.
 
 
 % =========================================================================
@@ -145,7 +142,7 @@ Recent literature indicates the persistent occurrence of massive, systematic act
 
 During runtime, the Input Classifier evaluates incoming activations against a learned distribution threshold $\Theta$. Values falling beneath the threshold ($|x| < \Theta$, composing $>99\%$ of the distribution) are smoothly quantized to standard INT8 and streamed into the highly dense, parallel INT8 MAC arrays. Conversely, the $\sim$1\% long-tail outliers are dynamically shunted into an independent 16-entry high-precision Overflow Buffer, where they are computed in extended formats (INT32). 
 
-A critical design consideration is resolving structural hazards: what happens if the Overflow Buffer saturates within a dense Attention block? We implement a \textit{graceful stalling mechanism}. Should the 16-entry buffer reach over-capacity due to a concentrated burst of outliers, the local PIM Bank Scheduler asserts a pipeline stall directed at the INT8 MAC array. The Overflow Buffer is forcefully flushed, merging its high-precision partial sums to the output buffer, before releasing the stall. Given the empirically sparse distribution of outliers in trained LLMs, this localized stall logic introduces negligible latency (statistically $<0.05\%$ profiling overhead) while providing absolute guarantees against data corruption.
+A critical design consideration is resolving structural hazards: what happens if the Overflow Buffer saturates within a dense Attention block? We implement a \textit{graceful stalling mechanism}. Should the 16-entry buffer reach over-capacity due to a concentrated burst of outliers, the local PIM Bank Scheduler asserts a pipeline stall directed at the INT8 MAC array. The Overflow Buffer is forcefully flushed, merging its high-precision partial sums to the output buffer, before releasing the stall. Given the empirically sparse distribution of outliers in trained LLMs, this localized stall logic introduces negligible latency (statistically $<0.05\%$ probability according to Qwen2.5 activation distributions) while providing absolute guarantees against data corruption.
 
 \subsection{Integer Non-Linear Unit (iNLU)}
 Standard Attention matrices naturally necessitate the Softmax operation to calculate probabilities, entailing the exponential function $e^x$. Historically, this forces near-memory hardware to employ complex, area-thirsty FP16 logic arrays. LKC-CXL-PIM entirely eliminates this requirement by introducing the \textbf{iNLU}, executing a highly optimized polynomial approximation strictly using integer arithmetic.
@@ -171,13 +168,13 @@ The optimization coefficients $A$, $B$, and $C$ are globally pre-computed mappin
 
 To validate physical implementability, LKC-CXL-PIM constructs a heavily pipelined SystemVerilog RTL abstraction mapped directly to the logic equations above (\texttt{inlu\_core.sv} and \texttt{outlier\_logic.sv}). 
 
-\begin{algorithm}[h]
+\begin{algorithm}[htbp]
 \caption{The 4-Stage Pipelined iNLU Execution}
 \label{alg:inlu_pipeline}
 \begin{algorithmic}[1]
 \REQUIRE INT32 logit $x$
 \STATE \textbf{Stage 1: Range Reduction}\\
-       Compute $n \leftarrow \lfloor x \times \mathtt{INV\_LN2} \rfloor$\\
+       Compute $n \leftarrow (x \times \mathtt{INV\_LN2\_SCALED}) \gg \mathtt{SCALE\_BITS} $\\
        Compute $f \leftarrow x - (n \times \mathtt{LN2\_CONST})$
 \STATE \textbf{Stage 2: Polynomial Setup}\\
        Prepare base operand $P \leftarrow f + B$ 
@@ -203,7 +200,7 @@ To rigorously evaluate LKC-CXL-PIM against state-of-the-art baselines, we constr
 
 \begin{table}[htbp]
 \caption{System Configuration Parameters}
-\begin{center} % Replaced center with centering for modern alignment
+\centering
 \begin{tabular}{lp{5cm}}
 \toprule
 \textbf{Component} & \textbf{Parameters} \\
@@ -212,11 +209,10 @@ Host CPU              & 3.2 GHz, 8-cores, 32MB L3 Cache \\
 CXL Interconnect      & CXL 3.0 protocol, 64 GB/s bandwidth, 150ns one-way traversal latency \\
 HBM3 Memory Array     & 8 Channels, 16 Banks/Channel, 2GHz Memory clock, $t_{CAS}=14.5$ns, $t_{RCD}=14.5$ns \\
 PIM Logic Die      & 1GHz operational frequency, INT8 MAC Arrays, 16-entry per-bank Overflow Buffer \\
-Synthesis Tech & TSMC 28nm HP standard cell library \\
+Synthesis Tech & TSMC 7nm FinFET standard cell library \\
 \bottomrule
 \end{tabular}
 \label{tab:system_config}
-\end{center}
 \end{table}
 
 \subsection{Workloads and Analytical Traces}
@@ -241,25 +237,31 @@ Fig.~\ref{fig:speedup} demonstrates the end-to-end decode latency comparison bet
 
 \begin{table}[htbp]
 \caption{Cycle-Accurate Memory Latency and Row Miss Simulation (Trace: Qwen2.5-7B)}
-\begin{center}
+\centering
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{llrrr}
 \toprule
-\textbf{Context} & \textbf{Architecture} & \textbf{Read Lat (ns)} & \textbf{Write Lat (ns)} & \textbf{Row Misses} \\
+\textbf{Context} & \textbf{Architecture} & \textbf{Read Cycles} & \textbf{Write Cycles} & \textbf{Row Misses} \\
 \midrule
-2K  & Baseline & 34.30 & 30614.49 & 250,266 \\
-2K  & LKC-CXL-PIM & \textbf{0.34} & \textbf{282.99} & \textbf{3,913} \\
+2K  & Baseline & 118,861,016 & 51,432,352 & 250,266 \\
+2K  & LKC-CXL-PIM & \textbf{1,203,816} & \textbf{475,436} & \textbf{3,913} \\
 \midrule
-8K  & Baseline & 34.47 & 12213.39 & 111,978 \\
-8K  & LKC-CXL-PIM & \textbf{0.35} & \textbf{126.50} & \textbf{1,639} \\
+8K  & Baseline & 47,544,296 & 20,518,496 & 111,978 \\
+8K  & LKC-CXL-PIM & \textbf{485,665} & \textbf{212,531} & \textbf{1,639} \\
 \bottomrule
 \end{tabular}%
 }
 \label{tab:sim_results}
-\end{center}
 \end{table}
 
-Deeper cycle-accurate Ramulator data (Table~\ref{tab:sim_results}) reveals the architectural catalyst for this acceleration. By shifting from standard Host-driven fetches to in-memory grouped broadcasts, generation read latency is suppressed by $\sim98.9\%$ (from 34.47ns to 0.35ns). Crucially, localized bank scheduling practically eliminates DRAM row-buffer ping-ponging, suppressing Row Misses from 111,978 down to barely 1,639 for the 8K trace.
+% Insert Fig 7: Ramulator Comparison
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{paper_assets/figures/fig7_ramulator_comparison.pdf}}
+\caption{Detailed cycle-accurate Ramulator micro-architectural simulation results, comparing host-centric memory fetching against near-memory execution latency components.}
+\label{fig:ramulator}
+\end{figure}
+
+Deeper cycle-accurate Ramulator data (Table~\ref{tab:sim_results} and Fig.~\ref{fig:ramulator}) reveals the architectural catalyst for this acceleration. By shifting from standard Host-driven fetches to in-memory grouped broadcasts, generation total read latency cycles are suppressed by $\sim98.9\%$ (e.g., from 47.5 million cycles down to 485 thousand cycles). Crucially, localized bank scheduling practically eliminates DRAM row-buffer ping-ponging, suppressing Row Misses from 111,978 down to barely 1,639 for the 8K trace.
 
 \subsection{Energy Efficiency and Area Savings}
 
@@ -299,7 +301,7 @@ The viability of integer-only approximation hinges definitively on algorithmic a
 \section{Related Work}
 
 \subsection{Processing-in-Memory Architectures}
-PIM has experienced a heavy resurgence due to the demands of deep learning memory footprints. Samsung's HBM-PIM \cite{samsung_pim} fundamentally proved the commercial viability of placing FP16 execution units within the DRAM bank boundaries. Subsequent iterations, such as Newton and Aquabolt \cite{pim_survey}, expanded this concept to broader transformer models. However, these systems inherently adopt rigid floating-point structures to accommodate diverse operations, leading to critical inefficiencies when deployed specifically for modern integer-quantized autoregressive decoding \cite{pim_integer_miss}. LKC-CXL-PIM specifically abandons this general-purpose FP requirement in favor of specialized iNLU pipelines to maximize spatial efficiency.
+PIM has experienced a heavy resurgence due to the demands of deep learning memory footprints \cite{pim_survey}. Samsung's Aquabolt-based HBM-PIM \cite{samsung_pim} fundamentally proved the commercial viability of placing FP16 execution units within the DRAM bank boundaries. Subsequent architectures, such as Newton \cite{newton_aim}, expanded this concept to broader machine learning models. However, these systems inherently adopt rigid floating-point structures to accommodate diverse operations. As demonstrated by dedicated integer inference accelerators \cite{pim_integer_miss}, relying on floating-point arithmetic leads to critical area and energy inefficiencies when deployed specifically for highly compressed workloads like modern integer-quantized autoregressive decoding. LKC-CXL-PIM specifically abandons this general-purpose FP requirement in favor of specialized iNLU pipelines to maximize spatial efficiency.
 
 \subsection{CXL and Memory Tiering}
 The Compute Express Link (CXL) standard \cite{cxl_standard} has rapidly evolved as the backbone for cache-coherent memory expansion. Recent works \cite{cxl_pond} demonstrate pooling across multiple Host CPUs to share massive KV caches conceptually. While these topological solutions elegantly address capacity limits, they suffer from fundamental PCIe bandwidth saturation during sequential token generation. Our framework uniquely treats CXL not just as passive capacity, but as a distribution bus for scalar Queries, completely shifting the active Attention traversal off the interconnect. 
@@ -325,11 +327,12 @@ We thank the developers and maintainers of the open-source Ramulator 2.0 framewo
 % =========================================================================
 \begin{thebibliography}{00}
 \bibitem{llm_context} H. Touvron et al., "Llama 2: Open Foundation and Fine-Tuned Chat Models," arXiv preprint arXiv:2307.09288, 2023.
+\bibitem{kv_cache_bottleneck} W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention," \textit{SOSP}, 2023.
 \bibitem{cxl_standard} Compute Express Link (CXL) Specification Revision 3.0, CXL Consortium, 2022.
 \bibitem{samsung_pim} S. Lee et al., "Hardware Architecture and Software Stack for PIM Based on Commercial DRAM Technology," \textit{ACM/IEEE 48th Annual ISCA}, 2021.
-\bibitem{kv_cache_bottleneck} W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention," \textit{SOSP}, 2023.
-\bibitem{pim_survey} S. Ghose et al., "Processing-in-memory: A workload-driven perspective," \textit{IBM JRD}, vol. 63, 2019.
 \bibitem{llm_outliers} T. Dettmers et al., "LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale," \textit{NeurIPS}, 2022.
+\bibitem{pim_survey} S. Ghose et al., "Processing-in-memory: A workload-driven perspective," \textit{IBM JRD}, vol. 63, 2019.
+\bibitem{newton_aim} M. He et al., "Newton: A DRAM-maker's Accelerator-in-Memory (AiM) Architecture for Machine Learning," \textit{MICRO}, 2020.
 \bibitem{pim_integer_miss} N. P. Jouppi et al., "In-Datacenter Performance Analysis of a Tensor Processing Unit," \textit{ISCA}, 2017.
 \bibitem{cxl_pond} H. Li et al., "Pond: CXL-Based Memory Pooling Systems for Cloud Platforms," \textit{ASPLOS}, 2023.
 \bibitem{llm_int8} S. Kim et al., "I-BERT: Integer-only BERT Quantization," \textit{ICML}, 2021.

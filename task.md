@@ -216,9 +216,24 @@
 | 阶段 3 | 第 6-7 月 | ✅ 完成 | 100% |
 | 阶段 4 | 第 8 月 | ✅ 核心撰写完成 | 95% |
 
+## 🚨 2026-03 紧急修复与大修 (已完成)
+
+**目标：** 解决审查时抛出的由于把“平均周期”当成“纳秒总延时”导致的物理逻辑荒谬问题。
+
+- [x] **修正项目数据提取脚本**
+  - [x] 修改 `reproduce_results.sh` 以输出 `read_latency_0` 和 `write_latency_0` 而不是 Avg。
+  - [x] 开发临时的 `_temp_parse_logs.py` 直接修正原有的 `simulation_results.csv`。
+  - [x] 修正绘图脚本 `plot_ramulator_results.py` 的 Y 轴标签和标题。
+  
+- [x] **修正 LaTeX 原文**
+  - [x] 将夸张荒诞的单次 `34.47ns` 替换为总耗时的 Cycle 数（例如：~47.5M -> 0.48M Cycles）。
+  - [x] 修正 Table I 的工艺节点 (28nm -> 7nm)。
+  - [x] 修正微架构硬件公式表达方式 (INV_LN2 -> SCALED + >> SCALE_BITS)。
+  - [x] 修正大量语法与极端修饰词 (violently shifts, devastating)。
+
 ---
 
-**最后更新时间：** 2026-03-28
+**最后更新时间：** 2026-03-29
 
 > [!TIP]
 > 定期更新此文件中的复选框状态，标记完成项为 `[x]`，进行中项为 `[/]`

@@ -85,8 +85,8 @@ python scripts/generate_paper_figures.py
 ```bibtex
 @inproceedings{LKC-CXL-PIM-202X,
   title={{LKC-CXL-PIM}: Long KV Cache via CXL Processing-in-Memory},
-  author={你的名字 和 你的合作者们},
-  booktitle={Proceedings of the XXth International Symposium on XXXX},
+  author={Li, Kaichen and others},
+  booktitle={Proceedings of the XXth International Symposium on Computer Architecture (ISCA)},
   year={202X}
 }
 ```
