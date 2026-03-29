@@ -91,12 +91,14 @@ def fig1_latency_breakdown():
     ax.set_xticklabels(contexts)
     ax.set_ylim(0, 1.05)
     ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: f'{y*100:.0f}%'))
-    ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
+    # Move legend entirely outside the plot to the right
+    ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
     
     # Add annotation
     ax.annotate('Part B + C > 85% at 128K!', 
-                xy=(3, 0.95), xytext=(2.2, 1.08),
+                xy=(3, 0.95), xytext=(2.0, 1.12),
                 fontsize=10, color='red', fontweight='bold',
+                annotation_clip=False,
                 arrowprops=dict(arrowstyle='->', color='red', lw=1.5))
     
     plt.tight_layout()
