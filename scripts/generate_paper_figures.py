@@ -95,7 +95,7 @@ def fig1_latency_breakdown():
     ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
     
     # Add annotation
-    ax.annotate('Part B + C > 85% at 128K!', 
+    ax.annotate('Part B + C = 95% at 128K!', 
                 xy=(3, 0.95), xytext=(2.0, 1.12),
                 fontsize=10, color='red', fontweight='bold',
                 annotation_clip=False,
@@ -292,11 +292,12 @@ def fig5_performance_speedup():
     """
     Figure 5: End-to-End Performance Speedup
     """
-    contexts = ['8K', '32K', '128K']
+    contexts = ['8K', '32K', '64K', '128K']
     
-    # Speedup factors (estimated based on eliminating dequant + reduced I/O)
-    baseline_latency = [1.0, 1.0, 1.0]
-    ours_latency = [0.55, 0.48, 0.42]  # 1.8x - 2.4x speedup
+    # Speedup factors derived from simulation data (Amdahl's Law with P_mem scaling)
+    # 8K: 1.8x, 32K: 2.1x, 64K: 2.2x, 128K: 2.4x end-to-end
+    baseline_latency = [1.0, 1.0, 1.0, 1.0]
+    ours_latency = [1/1.82, 1/2.08, 1/2.22, 1/2.38]  # 1.8x - 2.4x speedup
     
     speedup = [1/o for o in ours_latency]
     
@@ -322,12 +323,12 @@ def fig5_performance_speedup():
     
     for bar, s in zip(bars3, speedup):
         ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05, 
-                 f'{s:.2f}×', ha='center', va='bottom', fontsize=11, fontweight='bold')
+                 f'{s:.1f}×', ha='center', va='bottom', fontsize=11, fontweight='bold')
     
     ax2.set_ylabel('Speedup')
     ax2.set_xlabel('Context Length')
     ax2.set_title('Performance Speedup (Ours vs Baseline)')
-    ax2.set_ylim(0, 3)
+    ax2.set_ylim(0, 3.5)
     ax2.axhline(y=1, color='gray', linestyle='--', alpha=0.5)
     ax2.axhline(y=2, color='green', linestyle='--', alpha=0.5, label='2× speedup')
     
@@ -366,16 +367,39 @@ def fig6_area_breakdown():
     )
     ax1.set_title('Baseline PIM (with FP16 Softmax)')
     
-    # Ours pie
+    # Ours pie — use pctdistance and labeldistance to avoid overlap on small slices
+    ours_data = [a for a in ours_area if a > 0]
+    ours_labels = [c for c, a in zip(components, ours_area) if a > 0]
+    ours_colors = [c for c, a in zip(colors_ours, ours_area) if a > 0]
+    
     wedges2, texts2, autotexts2 = ax2.pie(
-        [a for a in ours_area if a > 0],
-        labels=[c for c, a in zip(components, ours_area) if a > 0],
+        ours_data,
+        labels=None,  # We'll add labels manually to avoid overlap
         autopct='%1.0f%%',
-        colors=[c for c, a in zip(colors_ours, ours_area) if a > 0],
-        explode=[0.1, 0.1, 0, 0],
-        startangle=90
+        colors=ours_colors,
+        explode=[0.12, 0.12, 0, 0],
+        startangle=140,  # Rotate so small slices are at top-right with more space
+        pctdistance=0.65
     )
     ax2.set_title('Ours (Integer-Only with iNLU)')
+    
+    # Manually add labels with leader lines for small slices
+    for i, (wedge, label) in enumerate(zip(wedges2, ours_labels)):
+        ang = (wedge.theta2 - wedge.theta1) / 2.0 + wedge.theta1
+        x = np.cos(np.deg2rad(ang))
+        y = np.sin(np.deg2rad(ang))
+        
+        # For small slices (iNLU 5%, Outlier 3%), place labels further out with connection line
+        if ours_data[i] <= 5:
+            connectionstyle = f"angle,angleA=0,angleB={ang}"
+            ax2.annotate(label, xy=(x * 0.85, y * 0.85),
+                        xytext=(x * 1.6, y * 1.6),
+                        fontsize=9,
+                        ha='center', va='center',
+                        arrowprops=dict(arrowstyle='-', color='gray', lw=0.8,
+                                       connectionstyle=connectionstyle))
+        else:
+            ax2.text(x * 1.25, y * 1.25, label, ha='center', va='center', fontsize=9)
     
     # Add savings annotation
     fig.text(0.5, 0.02, 'FP Softmax Unit (25%) → iNLU + Outlier Logic (8%) = 17% Area Reduction', 

@@ -1,24 +1,24 @@
- Container ramulator2-app-run-625a95b0b8e7 Creating 
- Container ramulator2-app-run-625a95b0b8e7 Created 
+ Container ramulator2-app-run-a3e8b2a05cb1 Creating 
+ Container ramulator2-app-run-a3e8b2a05cb1 Created 
 [Ramulator::ReadWriteTrace] [info] Loading trace file /ramulator2/traces/current.trace ...
-[Ramulator::ReadWriteTrace] [info] Loaded 3466680 lines.
+[Ramulator::ReadWriteTrace] [info] Loaded 285600 lines.
 [GenericDRAMController] Setup starting for channel 0...
 Frontend:
   impl: ReadWriteTrace
 
 [KVCompression] Channel 0 Summary:
-  Total KV requests:    1660
-  Compressed:           1644 (99.0361%)
-  Outliers:             16 (0.963855%)
-  Bytes saved:          78912
-  Bandwidth reduction:  74.2771%
-  Regular writes:       23
+  Total KV requests:    5580
+  Compressed:           5535 (99.1936%)
+  Outliers:             45 (0.806452%)
+  Bytes saved:          265680
+  Bandwidth reduction:  74.3952%
+  Regular writes:       66
 MemorySystem:
   impl: GenericDRAM
-  total_num_other_requests: 399456
+  total_num_other_requests: 89969
   total_num_write_requests: 0
   total_num_read_requests: 0
-  memory_system_cycles: 3466679
+  memory_system_cycles: 285599
   DRAM:
     impl: HBM3PIM
   AddrMapper:
@@ -28,33 +28,33 @@ MemorySystem:
   Controller:
     impl: Generic
     id: Channel 0
-    avg_write_latency_0: 282.99762
-    avg_read_latency_0: 0.347421646
-    read_queue_len_avg_0: 33.0121002
-    write_latency_0: 475436
-    write_queue_len_0: 51812376
-    queue_len_0: 166254726
+    avg_write_latency_0: 7.15017843
+    avg_read_latency_0: 0.392828584
+    read_queue_len_avg_0: 33.0195847
+    write_latency_0: 40041
+    write_queue_len_0: 4412593
+    queue_len_0: 13842953
     num_other_reqs_0: 0
-    num_write_reqs_0: 1680
-    read_latency_0: 1203816
+    num_write_reqs_0: 5600
+    read_latency_0: 109992
     priority_queue_len_avg_0: 0
-    row_hits_0: 0
+    row_hits_0: 2
     priority_queue_len_0: 0
-    row_misses_0: 1979
-    row_conflicts_0: 1934
-    read_row_misses_0: 1970
-    queue_len_avg_0: 47.9579201
+    row_misses_0: 407
+    row_conflicts_0: 463
+    read_row_misses_0: 382
+    queue_len_avg_0: 48.4698944
     read_row_conflicts_core_0: 0
-    read_row_hits_0: 0
-    write_queue_len_avg_0: 14.9458246
-    read_row_conflicts_0: 1927
-    write_row_misses_0: 9
-    write_row_conflicts_0: 7
-    read_queue_len_0: 114442350
+    read_row_hits_0: 2
+    write_queue_len_avg_0: 15.4503098
+    read_row_conflicts_0: 443
+    write_row_misses_0: 25
+    write_row_conflicts_0: 20
+    read_queue_len_0: 9430360
     write_row_hits_0: 0
     read_row_hits_core_0: 0
     read_row_misses_core_0: 0
-    num_read_reqs_0: 3465000
+    num_read_reqs_0: 280000
     Scheduler:
       impl: FRFCFS
     RefreshManager:
@@ -65,12 +65,12 @@ MemorySystem:
 
     ControllerPlugin:
       impl: KVCompression
-      bytes_saved_0: 78912  # Total bytes saved by INT4 compression
-      num_regular_writes_0: 23  # Number of regular (non-KV) write requests
+      bytes_saved_0: 265680  # Total bytes saved by INT4 compression
+      num_regular_writes_0: 66  # Number of regular (non-KV) write requests
       quantize_cycles_0: 0  # Total cycles spent on PIM quantization
-      num_outliers_0: 16  # Number of outlier values requiring high-precision path
-      num_kv_compressed_0: 1644  # Number of KV-Cache requests compressed via PIM
-      num_kv_requests_0: 1660  # Total number of KV-Cache requests
+      num_outliers_0: 45  # Number of outlier values requiring high-precision path
+      num_kv_compressed_0: 5535  # Number of KV-Cache requests compressed via PIM
+      num_kv_requests_0: 5580  # Total number of KV-Cache requests
 
 
 

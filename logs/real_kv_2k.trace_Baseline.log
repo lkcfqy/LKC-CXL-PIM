@@ -1,17 +1,17 @@
- Container ramulator2-app-run-217e9015a210 Creating 
- Container ramulator2-app-run-217e9015a210 Created 
+ Container ramulator2-app-run-35cbb42021e3 Creating 
+ Container ramulator2-app-run-35cbb42021e3 Created 
 [Ramulator::ReadWriteTrace] [info] Loading trace file /ramulator2/traces/current.trace ...
-[Ramulator::ReadWriteTrace] [info] Loaded 3466680 lines.
+[Ramulator::ReadWriteTrace] [info] Loaded 285600 lines.
 [GenericDRAMController] Setup starting for channel 0...
 Frontend:
   impl: ReadWriteTrace
 
 MemorySystem:
   impl: GenericDRAM
-  total_num_other_requests: 250318
+  total_num_other_requests: 58596
   total_num_write_requests: 0
   total_num_read_requests: 0
-  memory_system_cycles: 3466679
+  memory_system_cycles: 285599
   DRAM:
     impl: HBM3PIM_Baseline
   AddrMapper:
@@ -21,33 +21,33 @@ MemorySystem:
   Controller:
     impl: Generic
     id: Channel 0
-    avg_write_latency_0: 30614.4961
-    avg_read_latency_0: 34.3033218
-    read_queue_len_avg_0: 33.7885971
-    write_latency_0: 51432352
-    write_queue_len_0: 51877902
-    queue_len_0: 169012122
+    avg_write_latency_0: 807.450378
+    avg_read_latency_0: 37.0391006
+    read_queue_len_avg_0: 35.0320549
+    write_latency_0: 4521722
+    write_queue_len_0: 4492769
+    queue_len_0: 14497889
     num_other_reqs_0: 0
-    num_write_reqs_0: 1680
-    read_latency_0: 118861016
+    num_write_reqs_0: 5600
+    read_latency_0: 10370948
     priority_queue_len_avg_0: 0
-    row_hits_0: 0
+    row_hits_0: 114
     priority_queue_len_0: 0
-    row_misses_0: 48
-    row_conflicts_0: 250218
-    read_row_misses_0: 3
-    queue_len_avg_0: 48.7533264
+    row_misses_0: 607
+    row_conflicts_0: 57824
+    read_row_misses_0: 284
+    queue_len_avg_0: 50.7630959
     read_row_conflicts_core_0: 0
-    read_row_hits_0: 0
-    write_queue_len_avg_0: 14.9647264
-    read_row_conflicts_0: 248603
-    write_row_misses_0: 45
-    write_row_conflicts_0: 1615
-    read_queue_len_0: 117134220
+    read_row_hits_0: 114
+    write_queue_len_avg_0: 15.731039
+    read_row_conflicts_0: 52565
+    write_row_misses_0: 323
+    write_row_conflicts_0: 5259
+    read_queue_len_0: 10005120
     write_row_hits_0: 0
     read_row_hits_core_0: 0
     read_row_misses_core_0: 0
-    num_read_reqs_0: 3465000
+    num_read_reqs_0: 280000
     Scheduler:
       impl: FRFCFS
     RefreshManager:

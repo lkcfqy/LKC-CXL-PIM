@@ -15,23 +15,31 @@ def plot_ramulator_comparison():
 
     df = pd.read_csv(csv_path)
     
-    # Map trace to Context
+    # Map ALL trace names to friendly context labels
     def get_context(t):
-        if '2k' in t: return '2K Context'
-        if '8k' in t: return '8K Context'
+        if '128k' in t: return '128K'
+        if '64k' in t: return '64K'
+        if '32k' in t: return '32K'
+        if '8k' in t: return '8K'
+        if '2k' in t: return '2K'
         return t
 
     df['Context'] = df['Trace'].apply(get_context)
 
-    # Pivot the dataframe for easier plotting
-    # We want Context as categories, Scenario as colors
-    pivot_lat = df.pivot(index='Context', columns='Scenario', values='ReadLatency') / 1e6  # Convert to Millions of Cycles
-    pivot_miss = df.pivot(index='Context', columns='Scenario', values='RowMisses')
+    # Define explicit ordering
+    context_order = ['2K', '8K', '32K', '64K', '128K']
 
-    # Ensure ordering
+    # Pivot the dataframe for easier plotting
+    pivot_lat = df.pivot_table(index='Context', columns='Scenario', values='ReadLatency', aggfunc='first') / 1e6  # Millions of Cycles
+    pivot_miss = df.pivot_table(index='Context', columns='Scenario', values='RowMisses', aggfunc='first')
+
+    # Sort by context order
+    pivot_lat = pivot_lat.reindex(context_order)
+    pivot_miss = pivot_miss.reindex(context_order)
+
     contexts = list(pivot_lat.index)
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
     
     x = np.arange(len(contexts))
     width = 0.35
@@ -45,7 +53,8 @@ def plot_ramulator_comparison():
     ax1.set_ylabel('Total Read Latency (Millions of Cycles)', fontsize=12)
     ax1.set_title('Read Latency Comparison (Log Scale)', fontsize=14, fontweight='bold')
     ax1.set_xticks(x)
-    ax1.set_xticklabels(contexts, fontsize=12)
+    ax1.set_xticklabels(contexts, fontsize=11)
+    ax1.set_xlabel('Context Length', fontsize=12)
     ax1.set_yscale('log')
     ax1.legend(fontsize=11)
     
@@ -54,11 +63,12 @@ def plot_ramulator_comparison():
         for rect in rects:
             height = rect.get_height()
             if height > 0:
-                ax1.annotate(f'{height:.2f}M',
+                label = f'{height:.1f}M' if height >= 1.0 else f'{height:.2f}M'
+                ax1.annotate(label,
                             xy=(rect.get_x() + rect.get_width() / 2, height),
-                            xytext=(0, 3 + (8 if is_pim else 0)),  # 3 points vertical offset
+                            xytext=(0, 3 + (8 if is_pim else 0)),
                             textcoords="offset points",
-                            ha='center', va='bottom', fontsize=10, fontweight='bold')
+                            ha='center', va='bottom', fontsize=8, fontweight='bold')
 
     autolabel_lat(rects1)
     autolabel_lat(rects2, is_pim=True)
@@ -70,7 +80,8 @@ def plot_ramulator_comparison():
     ax2.set_ylabel('Total Row Misses', fontsize=12)
     ax2.set_title('Row Buffer Locality (Log Scale)', fontsize=14, fontweight='bold')
     ax2.set_xticks(x)
-    ax2.set_xticklabels(contexts, fontsize=12)
+    ax2.set_xticklabels(contexts, fontsize=11)
+    ax2.set_xlabel('Context Length', fontsize=12)
     ax2.set_yscale('log')
     ax2.legend(fontsize=11)
 
@@ -82,7 +93,7 @@ def plot_ramulator_comparison():
                             xy=(rect.get_x() + rect.get_width() / 2, height),
                             xytext=(0, 3 + (8 if is_pim else 0)),
                             textcoords="offset points",
-                            ha='center', va='bottom', fontsize=10, fontweight='bold')
+                            ha='center', va='bottom', fontsize=8, fontweight='bold')
 
     autolabel_miss(rects3)
     autolabel_miss(rects4, is_pim=True)
@@ -94,3 +105,4 @@ def plot_ramulator_comparison():
 
 if __name__ == "__main__":
     plot_ramulator_comparison()
+

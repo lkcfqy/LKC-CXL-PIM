@@ -1,21 +1,45 @@
-# Python artifacts
+# --- RESEARCH PROJECT GITIGNORE ---
+
+# LaTeX
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.pdfsync
+*.synctex.gz
+*.alg
+*.loa
+
+# Keep the final PDFs in the root (academic preference)
+!pimmain.pdf
+!cxlmain.pdf
+
+# Python
 __pycache__/
 *.py[cod]
-*.so
+*$py.class
+venv/
+.env
 
-# Environments
-env/
-.venv/
-
-# Large Data
-traces/
-
-# Project Specific
-.gemini/
+# Ramulator 2 & Build Artifacts
 ramulator2/build/
 ramulator2/ext/
+ramulator2/libramulator.so
 ramulator2/ramulator2
-ramulator2/autobuild.sh
+ramulator2/traces/
+obj_dir/
 
-# IDE
-.vscode/
+# Big Data & Logs (Keep repo clean)
+logs/
+results/
+traces/
+*.trace
+*.log
+
+# Simulation temporary files
+_temp_*
+.DS_Store

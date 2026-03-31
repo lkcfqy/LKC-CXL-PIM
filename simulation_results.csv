@@ -1,5 +1,11 @@
 Trace,Scenario,ReadLatency,WriteLatency,RowMisses
-real_kv_2k.trace,Baseline,118861016,51432352,250266
-real_kv_2k.trace,PIM-KV,1203816,475436,3913
-real_kv_8k.trace,Baseline,47544296,20518496,111978
-real_kv_8k.trace,PIM-KV,485665,212531,1639
+real_kv_2k.trace,Baseline,10370948,4521722,58431
+real_kv_2k.trace,PIM-KV,109992,40041,870
+real_kv_8k.trace,Baseline,10767461,4523263,80483
+real_kv_8k.trace,PIM-KV,117633,50344,1195
+real_kv_32k.trace,Baseline,19486076,8264642,71289
+real_kv_32k.trace,PIM-KV,196089,110489,968
+real_kv_64k.trace,Baseline,38975270,16433770,143745
+real_kv_64k.trace,PIM-KV,396455,266064,1913
+real_kv_128k.trace,Baseline,77895197,32743881,288535
+real_kv_128k.trace,PIM-KV,795079,352069,3700

@@ -14,7 +14,7 @@ echo "LKC-CXL-PIM: Automated Simulation Runner"
 echo "========================================================"
 
 # Available traces
-TRACES=("real_kv_2k.trace" "real_kv_4k.trace" "extrapolated_8k.trace") # Add others as needed
+TRACES=("real_kv_2k.trace" "real_kv_8k.trace" "real_kv_32k.trace" "real_kv_64k.trace" "real_kv_128k.trace")
 
 # Create standardized output file
 OUTPUT_CSV="$BASE_DIR/simulation_results.csv"
@@ -101,6 +101,18 @@ if [ -f "$TRACES_DIR/real_kv_8k.trace" ]; then
     run_sim "real_kv_8k.trace" "Baseline" "hbm3_pim_baseline.yaml"
     run_sim "real_kv_8k.trace" "PIM-KV"   "hbm3_pim_kv.yaml"
 fi
+
+# Run for 32K trace
+run_sim "real_kv_32k.trace" "Baseline" "hbm3_pim_baseline.yaml"
+run_sim "real_kv_32k.trace" "PIM-KV"   "hbm3_pim_kv.yaml"
+
+# Run for 64K trace
+run_sim "real_kv_64k.trace" "Baseline" "hbm3_pim_baseline.yaml"
+run_sim "real_kv_64k.trace" "PIM-KV"   "hbm3_pim_kv.yaml"
+
+# Run for 128K trace
+run_sim "real_kv_128k.trace" "Baseline" "hbm3_pim_baseline.yaml"
+run_sim "real_kv_128k.trace" "PIM-KV"   "hbm3_pim_kv.yaml"
 
 echo "========================================================"
 echo "All simulations completed."

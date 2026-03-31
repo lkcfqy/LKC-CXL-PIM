@@ -1,0 +1,50 @@
+# CXL 3.0 Disaggregated Memory Configuration for DisaggKV
+# Phase 5.2 - LKC-CXL-PIM Project
+#
+# This configuration defines the multi-node CXL Fabric topology
+# used by the Python-level CXL Fabric Simulator.
+
+CXLFabric:
+  topology: star            # star | ring | fat_tree
+  num_nodes: 4
+
+  switch:
+    base_latency_ns: 150    # CXL Switch base wire latency
+    per_hop_ns: 50           # Additional latency per hop (for ring/tree)
+    port_bandwidth_gbps: 64  # Per-port bandwidth (CXL 3.0 x16 PCIe Gen6)
+    queue_depth: 64          # Switch port queue depth (entries)
+    arbitration: round_robin # round_robin | priority
+
+  nodes:
+    - node_id: 0
+      hbm_config: hbm3_pim_kv.yaml
+      role: shared_kv         # Stores shared system prompt KV-Cache
+      capacity_gb: 16
+    - node_id: 1
+      hbm_config: hbm3_pim_kv.yaml
+      role: private_kv        # Stores private user KV-Cache
+      capacity_gb: 16
+    - node_id: 2
+      hbm_config: hbm3_pim_kv.yaml
+      role: private_kv
+      capacity_gb: 16
+    - node_id: 3
+      hbm_config: hbm3_pim_kv.yaml
+      role: private_kv
+      capacity_gb: 16
+
+  fault_tolerance:
+    enabled: true
+    mtbf_seconds: 3600       # Mean Time Between Failures
+    fault_duration_ms_min: 1  # Min fault duration
+    fault_duration_ms_max: 10 # Max fault duration
+    scheme: parity            # parity | erasure_coding
+    parity_group_size: 2      # XOR parity across N nodes
+    erasure_k: 4              # RS(k,m) data blocks
+    erasure_m: 2              # RS(k,m) parity blocks
+
+  pim_extensions:
+    sync_barrier: true
+    partial_sum_bytes: 2048   # Bytes per Reduce operation
+    reduce_op: allreduce      # allreduce | ring_reduce
+    distributed_softmax: true # Enable cross-node Softmax

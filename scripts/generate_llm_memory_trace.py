@@ -12,8 +12,8 @@ Usage:
 
 import os
 import argparse
-import torch
-import time
+# import torch
+# import time
 from dataclasses import dataclass
 from typing import List, Tuple
 import random
@@ -94,13 +94,13 @@ def generate_kv_cache_trace_from_model_config(
             for _ in range(num_reads):
                 token_idx = random.randint(0, current_pos - 1)
                 addr = k_cache_base + layer_offset + token_idx * bytes_per_kv_per_token
-                traces.append(f"R {addr} {addr_to_vector(addr, hbm)}")
+                traces.append(f"RK {addr} {addr_to_vector(addr, hbm)}")
             
             # Read historical V-cache  
             for _ in range(num_reads):
                 token_idx = random.randint(0, current_pos - 1)
                 addr = v_cache_base + layer_offset + token_idx * bytes_per_kv_per_token
-                traces.append(f"R {addr} {addr_to_vector(addr, hbm)}")
+                traces.append(f"RV {addr} {addr_to_vector(addr, hbm)}")
             
             # Write new K-cache (trigger PIM compression)
             addr = k_cache_base + layer_offset + current_pos * bytes_per_kv_per_token
@@ -196,7 +196,7 @@ def main():
     # Statistics
     k_writes = sum(1 for t in traces if t.startswith("K "))
     v_writes = sum(1 for t in traces if t.startswith("V "))
-    reads = sum(1 for t in traces if t.startswith("R "))
+    reads = sum(1 for t in traces if t.startswith("RK ") or t.startswith("RV "))
     
     print(f"\nTrace generated: {args.output}")
     print(f"  Total lines: {len(traces)}")
