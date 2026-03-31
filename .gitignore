@@ -13,10 +13,14 @@
 *.synctex.gz
 *.alg
 *.loa
+*.nav
+*.snm
+*.vrb
 
 # Keep the final PDFs in the root (academic preference)
 !pimmain.pdf
 !cxlmain.pdf
+!cxl_presentation.pdf
 
 # Python
 __pycache__/
