@@ -1,0 +1,57 @@
+\usepackage{libertine}
+\usepackage[libertine]{newtxmath}
+\usepackage{microtype}
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    left=30mm,
+    right=25mm,
+    top=30mm,
+    bottom=30mm
+}
+
+\usepackage{fancyhdr}
+\setlength{\headheight}{14.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\let\Bbbk\undefined
+\usepackage{amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{cite}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{subcaption}
+\PassOptionsToPackage{hidelinks}{hyperref}
+
+% TikZ
+\usepackage{tikz}
+\usetikzlibrary{calc,positioning,shapes.geometric,arrows.meta,3d,shadows}
+
+% Hyperref
+\usepackage{hyperref}
+\usepackage{bookmark}
+\setCJKmainfont{Songti SC}
+\setCJKsansfont{PingFang SC}
+\setCJKmonofont{Heiti SC}
+\hypersetup{
+    pdftitle={面向可扩展长上下文大语言模型的软硬件协同设计},
+    pdfauthor={Kaichen Li}
+}
+\captionsetup{font=small, labelfont=bf}
+\widowpenalty=10000
+\clubpenalty=10000
+
+% Line spacing for thesis
+\setstretch{1.5}

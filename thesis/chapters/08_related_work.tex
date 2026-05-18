@@ -1,0 +1,52 @@
+\chapter{Related Systems and Architecture Work}
+\label{ch:related_work}
+
+The nearby literature overlaps with this report in vocabulary, but not always in data path. CXL papers usually ask how to expose or place more memory. PIM papers ask which arithmetic can move toward the arrays. Serving-system papers decide how KV pages are scheduled, cached, or reused. Compression papers reduce the number of bytes in the cache. This chapter separates those roles from the narrower point I make here: for long-context decode, the attention traversal and the softmax metadata exchange should move toward the stored KV state.
+
+\section{CXL Work Closest to This Report}
+
+The CXL work closest to this report is mainly concerned with capacity and placement. Pond studies memory pooling for cloud platforms; DirectCXL exposes disaggregated memory through direct access; TPP manages page placement in a CXL-enabled tiered hierarchy~\cite{cxl_pond, direct_cxl, tpp}. CXL-ANNS applies the same broad idea of CXL-backed capacity to memory-intensive approximate-nearest-neighbor search~\cite{cxl_anns}. These systems are important baselines for the memory tier, but they do not move the softmax reduction for a long KV cache into the CXL endpoint.
+
+I separate DisaggKV from page-placement work at the point where the page is already resident. Decode still has to normalize attention over the K/V values stored on that page, and in a pooled system the relevant pages may sit on several endpoints. DisaggKV is aimed at that later step. The fabric carries the scalar coordination payload for softmax instead of serving only as a larger load/store tier for remote memory.
+
+In other words, the remaining question is what happens after the page has been found. If normalization still runs on the host-facing side, long histories continue to move as dense tensors. DisaggKV changes the payload mix: query vectors, scalar reduction state, and compact outputs replace repeated transfers of historical K/V tensors.
+
+\section{Processing-in-Memory for Neural Networks}
+
+PIM is relevant because it attacks the same movement cost from the hardware side. Samsung's HBM-PIM and related accelerator-in-memory designs show that arithmetic can be integrated within or near stacked-memory logic layers~\cite{samsung_pim, aim_samsung}. Transformer-oriented work such as TransPIM and AttentionLego brings that idea closer to attention and sequence workloads~\cite{transpim, attentionlego}.
+
+The difference is not that those PIM systems ignore attention; it is the numerical contract they preserve. Designs that support a broader kernel mix often keep floating-point nonlinear hardware. LKC-CXL-PIM intentionally narrows that contract to quantized attention over resident KV pages. Its iNLU borrows the motivation of integer-only quantization work such as I-BERT, but places the nonlinear approximation beside a near-memory attention engine rather than in a conventional accelerator pipeline~\cite{llm_int8, pim_quant, goliath}.
+
+\section{Serving-Stack Work Above the Fabric}
+
+LLM serving work attacks a different layer of the same pressure. The vLLM system introduced PagedAttention to improve KV-cache management within a single-node serving stack~\cite{vllm}. Orca and FlexGen study scheduling and memory-management strategies for high-throughput autoregressive generation~\cite{orca, flexgen}. DistServe and Splitwise further separate prefill and decode across different compute resources to improve serving efficiency~\cite{distserve, splitwise}.
+
+Distributed-attention work is the closest in spirit because it also splits attention or KV state across devices~\cite{ring_attention, seq_parallel, infinite_llm}. Those systems usually assume GPU memory or accelerator-class collectives. DisaggKV sits lower in the memory hierarchy: a CXL endpoint pool where page locality and scalar endpoint reductions replace part of the host-visible collective path.
+
+\section{KV-Cache Compression and Hierarchical Caching}
+
+Another line of work reduces the amount of KV state that must remain in fast memory. KIVI and KVQuant study low-bit KV-cache quantization and show that careful treatment of key and value distributions can preserve model quality while reducing the cache footprint~\cite{kivi, kvquant}. CacheGen compresses and streams reusable KV caches to reduce context-loading delay across the network~\cite{cachegen}. ShadowKV reduces long-context memory pressure by storing a compact key representation and reconstructing sparse KV pairs on demand~\cite{shadowkv}. Strata studies hierarchical context caching and scheduling for production long-context serving, emphasizing the cost of moving cached contexts back toward the GPU~\cite{strata}.
+
+I view these systems as complementary rather than competing. Compression reduces how many bytes represent the cache. Hierarchical caching improves where those bytes sit and when they are loaded. LKC-CXL-PIM and DisaggKV ask the next data-path question: after the bytes are stored, can decode computation move closer to them? A complete serving stack could combine the directions. Compressed or hierarchically cached KV pages could still be processed by a near-memory endpoint, and endpoint-side reduction could reduce the traffic that remains.
+
+\section{Positioning Summary}
+
+Table~\ref{tab:related_positioning} summarizes this positioning. The central contribution is not a new attention algorithm, a new model architecture, or a general CXL memory manager. It is a hardware-software dataflow for long-context serving that treats the KV cache as the memory-system anchor.
+
+\begin{table}[htbp]
+\centering
+\caption[Positioning against related work]{Positioning of this report relative to nearby systems and architecture work.}
+\label{tab:related_positioning}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Research Line} & \textbf{Representative Work} & \textbf{Difference from This Report} \\
+\midrule
+CXL memory pooling & Pond, DirectCXL, TPP & Expands or manages memory capacity, but generally keeps the host-centered load/store data path for remote state. \\
+PIM neural kernels & HBM-PIM, AIM, TransPIM, AttentionLego & Moves neural arithmetic near stacked memory; this report specializes the endpoint path for quantized KV-cache softmax instead of a broad floating-point PIM engine. \\
+Serving-stack schedulers & vLLM, Orca, FlexGen, DistServe, Splitwise & Improves batching, paging, or prefill/decode placement, while this report changes the memory-endpoint path used when decode revisits old KV pages. \\
+Distributed attention & Ring Attention, sequence parallelism, Infinite-LLM & Splits attention across accelerator resources; DisaggKV studies a lower CXL endpoint pool and exchanges scalar softmax state there. \\
+KV compression and caching & KIVI, KVQuant, CacheGen, ShadowKV, Strata & Shrinks or reorganizes the cache representation; LKC-CXL-PIM and DisaggKV instead change where the remaining KV attention work runs. \\
+\bottomrule
+\end{tabularx}
+\end{table}

@@ -1,0 +1,90 @@
+% --- thesis/main.tex ---
+\documentclass[11pt,a4paper,oneside]{book}
+
+\input{preamble}
+
+\begin{document}
+\pagenumbering{gobble}
+
+\begin{titlepage}
+\thispagestyle{empty}
+\begingroup
+\coverfont
+\singlespacing
+\setlength{\parindent}{0pt}
+\begin{center}
+    \vspace*{9mm}
+
+    {\fontsize{13}{16}\selectfont Research Report\par}
+
+    \vspace{16mm}
+
+    {\fontsize{22}{28}\selectfont
+    \begin{minipage}{0.90\textwidth}
+        \centering\coverfont\bfseries
+        Hardware-Software Co-Design for Scalable Long-Context Large Language Models
+    \end{minipage}\par}
+
+    \vspace{7mm}
+
+    {\fontsize{16}{20}\selectfont Integer PIM and CXL Pooling\par}
+
+    \vspace{21mm}
+
+    {\fontsize{13}{16}\selectfont June 2026\par}
+
+    \vspace{15mm}
+
+    {\fontsize{13}{16}\selectfont Major of Computer Science and Technology\par}
+    \vspace{3mm}
+    {\fontsize{13}{16}\selectfont Graduate School of Computer Engineering Youngsan University\par}
+
+    \vspace{16mm}
+
+    {\fontsize{13}{16}\selectfont \textbf{Kaichen Li}\par}
+
+    \vspace{30mm}
+
+    {\fontsize{13}{16}\selectfont Supervised by \textbf{Gilja So}\par}
+
+    \vspace{27mm}
+
+    {\fontsize{13}{16}\selectfont Graduate School of Computer Engineering\par}
+    \vspace{4mm}
+    {\fontsize{13}{16}\selectfont Youngsan University\par}
+\end{center}
+\endgroup
+\end{titlepage}
+
+\cleardoublepage
+\frontmatter
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+Long-context Large Language Model (LLM) serving turns the Key-Value (KV) cache from an implementation detail into a memory-system bottleneck. In the 128K-token configuration evaluated here, one 7B-class grouped-query request already reserves several gigabytes for stored keys and values. A larger memory tier can hold that state, but capacity alone does not decide decode speed. If each new token still pulls large regions of the old cache through a host-centered Compute Express Link (CXL) path, the expanded tier becomes a new source of shared-link traffic.
+
+The report is organized around two artifacts rather than one monolithic accelerator. In \textbf{LKC-CXL-PIM}, the historical K/V pages stay in a CXL-attached HBM stack. A decode request reaches the endpoint as a compact descriptor containing the query vector, page range, head id, and scale metadata; the endpoint then walks its local cache and returns the weighted attention result. The fixed-point Integer Non-Linear Unit (iNLU) keeps the softmax exponential on the integer path, and the overflow route is used only for activations that would be damaged by the dense INT8 lane. \textbf{DisaggKV} carries the same idea into a memory pool: shared prefix pages are kept reusable, private continuation pages are spread across endpoints, and the only softmax values exchanged globally are the maximum and exponential sum.
+
+I keep the measurement evidence split for auditability. Modified Ramulator 2.0 traces provide the HBM/PIM timing, a Python CXL-fabric event model supplies multi-node queueing behavior, and synthesis-derived proxy reports bound the iNLU cost. With a 128K-token single-endpoint trace, LKC-CXL-PIM lowers read latency from 77.90 million cycles to 0.80 million cycles and reduces normalized logic-die area from 1.00 to 0.83. In the distributed runs, DisaggKV stays within a 50\,ms tail-latency target until roughly 2.9K requests/s, cuts host-facing traffic by 92.2\% per 1M decoded tokens, and reaches a 95th-percentile recovery latency of 416\,ms under the injected-fault model.
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\mainmatter
+
+\include{chapters/01_introduction}
+\include{chapters/02_background}
+\include{chapters/03_motivation}
+\include{chapters/04_inlu_architecture}
+\include{chapters/05_disaggkv_system}
+\include{chapters/06_methodology}
+\include{chapters/07_evaluation}
+\include{chapters/08_related_work}
+\include{chapters/09_conclusion}
+
+\backmatter
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

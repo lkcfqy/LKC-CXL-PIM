@@ -1,0 +1,45 @@
+\chapter{背景知识}
+\label{ch:background}
+
+本章回顾理解本文所需的技术背景。首先介绍自回归注意力的结构及由此产生的 KV 缓存规模，然后讨论基于 CXL 的内存扩展、主机聚合系统中的排队行为，以及 PIM 与量化推理之间的相互作用。
+
+\section{LLM 推理动态与 KV 缓存特征}
+
+自回归 Transformer 推理需要在不断增长的历史序列上重复执行自注意力。在 decode 阶段，当前查询向量 $\mathbf{Q}$ 必须与前面 token 积累下来的键和值张量进行比较~\cite{flashattn}。标准形式如下：
+\begin{equation}
+\label{eq:attn}
+\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Softmax}\left( \frac{\mathbf{Q} \mathbf{K}^T}{\sqrt{d}} \right) \mathbf{V}
+\end{equation}
+
+对于批大小 $B$、序列长度 $L$、注意力头数 $H$ 和头维度 $d$，FP16 格式 KV 缓存的存储需求为：
+\begin{equation}
+    \text{Size}_{KV} = 2 \times B \times L \times H \times d \times (\text{2 bytes})
+\end{equation}
+由于 KV 缓存随 $L$ 线性增长，长上下文 decode 会越来越偏向内存受限，而非计算受限。已有系统研究表明，长序列生成在时间和能耗上会越来越多地消耗于 KV 缓存管理，而不只是稠密算术本身~\cite{infinigen}。
+
+\section{Compute Express Link（CXL）与分层内存}
+
+HBM 具有极高带宽，但单个加速器封装内可提供的容量有限。随着模型规模、批大小和上下文长度不断增长，这一固定的片上容量会越来越成为约束。Compute Express Link（CXL）通过基于 PCIe 的链路支持内存扩展与池化，同时保留 load/store 编程模型，从而缓解这一问题~\cite{cxl_standard}。
+
+Type-3 CXL 设备可以作为内存扩展器，直接映射到主机内存空间，而无需 RDMA 风格的通信栈~\cite{direct_cxl}。这种抽象对于长上下文服务很有吸引力，但其性能与本地 HBM 仍存在明显差距。本地 HBM 访问的延迟通常在几十纳秒量级，聚合带宽可达 TB/s；而 CXL 链路的带宽显著更低，遍历延迟也明显更高~\cite{tpp}。因此，将 KV 缓存从 HBM 转移到远端 CXL 层级虽然能解决容量问题，却可能进一步加剧 decode 阶段的带宽问题。
+
+\section{排队理论与主机聚合瓶颈}
+
+在当前主机聚合式 CXL 部署中，远端访问仍需经过 Root Complex。当多个端点并发处理长上下文 decode 请求时，面向主机的链路与交换机端口就会成为共享的排队资源。一个常用近似是 M/D/1 队列：
+\begin{equation}
+\label{eq:queue}
+W_q = \frac{\rho}{2\mu(1 - \rho)} \quad \text{where} \quad \rho = \frac{\lambda}{\mu}
+\end{equation}
+其中，$\lambda$ 是聚合到达率，$\mu$ 是链路或交换机端口的服务率~\cite{kleinrock}。对于长上下文服务，$\lambda$ 主要由 decode 阶段对大规模 KV 缓存区域的反复拉取驱动。一旦 $\rho$ 接近 1，排队时延便会迅速增长。
+
+这也解释了为什么单纯扩容并不足够。如果 decode 工作负载仍然不断把稠密 KV 张量拉回主机，那么更大的内存池只会把更多流量灌入同一个面向主机的瓶颈。要降低 $\lambda$，就必须改变计算与数据流，而不仅仅是增加内存容量。
+
+\section{存内计算与模型量化}
+
+存内计算将简单算术单元布置在内存阵列附近，使更多数据通路停留在内存设备内部，而不是跨越封装边界~\cite{pim_survey}。对于注意力工作负载，这一思路尤其自然，因为键和值本身就存储在内存中。
+
+\begin{sloppypar}
+但在实际系统中，PIM 与 LLM 服务软件的结合会受到量化策略影响。SmoothQuant 和 GPTQ 等方法通过将模型状态和激活映射为低精度整数格式，显著降低了存储占用~\cite{llm_smoothquant, gptq}。相比之下，许多现有 PIM 架构，包括商用 HBM-PIM 设计，往往为了适应更广泛工作负载而配置浮点数据通路~\cite{samsung_pim}。这就在紧凑存储与高效近内存非线性计算之间形成了张力。
+\end{sloppypar}
+
+如果量化后的 KV 缓存数据在内存逻辑内部仍需反复上转换为浮点格式，那么格式转换开销就会同时削弱性能与面积效率。因此，本文关注一种面向整数域的替代方案，即直接在整数域中逼近注意力中的非线性部分。

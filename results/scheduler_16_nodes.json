@@ -1,0 +1,191 @@
+{
+  "config": {
+    "num_nodes": 16,
+    "policy": "LOCALITY_AWARE",
+    "topology": "star"
+  },
+  "trace_stats": {
+    "total_lines": 10737440,
+    "write_operations": 259728,
+    "unique_requests": 50,
+    "total_tokens_allocated": 259728
+  },
+  "page_table": {
+    "total_allocations": 16235,
+    "total_frees": 0,
+    "total_lookups": 0,
+    "shared_page_hits": 0,
+    "active_pages": 16235
+  },
+  "per_node": {
+    "0": {
+      "role": "shared_kv",
+      "allocated_pages": 0,
+      "total_capacity": 4194304,
+      "utilization": 0.0,
+      "total_accesses": 0,
+      "shared_pages": 0,
+      "hot_pages": 0
+    },
+    "1": {
+      "role": "private_kv",
+      "allocated_pages": 1754,
+      "total_capacity": 4194304,
+      "utilization": 0.0004181861877441406,
+      "total_accesses": 1017232,
+      "shared_pages": 0,
+      "hot_pages": 1753
+    },
+    "2": {
+      "role": "private_kv",
+      "allocated_pages": 889,
+      "total_capacity": 4194304,
+      "utilization": 0.00021195411682128906,
+      "total_accesses": 598462,
+      "shared_pages": 0,
+      "hot_pages": 889
+    },
+    "3": {
+      "role": "private_kv",
+      "allocated_pages": 700,
+      "total_capacity": 4194304,
+      "utilization": 0.00016689300537109375,
+      "total_accesses": 331180,
+      "shared_pages": 0,
+      "hot_pages": 700
+    },
+    "4": {
+      "role": "private_kv",
+      "allocated_pages": 700,
+      "total_capacity": 4194304,
+      "utilization": 0.00016689300537109375,
+      "total_accesses": 441396,
+      "shared_pages": 0,
+      "hot_pages": 700
+    },
+    "5": {
+      "role": "private_kv",
+      "allocated_pages": 763,
+      "total_capacity": 4194304,
+      "utilization": 0.0001819133758544922,
+      "total_accesses": 552854,
+      "shared_pages": 0,
+      "hot_pages": 763
+    },
+    "6": {
+      "role": "private_kv",
+      "allocated_pages": 641,
+      "total_capacity": 4194304,
+      "utilization": 0.00015282630920410156,
+      "total_accesses": 525432,
+      "shared_pages": 0,
+      "hot_pages": 641
+    },
+    "7": {
+      "role": "private_kv",
+      "allocated_pages": 1400,
+      "total_capacity": 4194304,
+      "utilization": 0.0003337860107421875,
+      "total_accesses": 691692,
+      "shared_pages": 0,
+      "hot_pages": 1400
+    },
+    "8": {
+      "role": "private_kv",
+      "allocated_pages": 1572,
+      "total_capacity": 4194304,
+      "utilization": 0.00037479400634765625,
+      "total_accesses": 1133780,
+      "shared_pages": 0,
+      "hot_pages": 1572
+    },
+    "9": {
+      "role": "private_kv",
+      "allocated_pages": 1008,
+      "total_capacity": 4194304,
+      "utilization": 0.000240325927734375,
+      "total_accesses": 550952,
+      "shared_pages": 0,
+      "hot_pages": 1008
+    },
+    "10": {
+      "role": "private_kv",
+      "allocated_pages": 700,
+      "total_capacity": 4194304,
+      "utilization": 0.00016689300537109375,
+      "total_accesses": 279062,
+      "shared_pages": 0,
+      "hot_pages": 700
+    },
+    "11": {
+      "role": "private_kv",
+      "allocated_pages": 1750,
+      "total_capacity": 4194304,
+      "utilization": 0.0004172325134277344,
+      "total_accesses": 1091798,
+      "shared_pages": 0,
+      "hot_pages": 1750
+    },
+    "12": {
+      "role": "private_kv",
+      "allocated_pages": 1050,
+      "total_capacity": 4194304,
+      "utilization": 0.0002503395080566406,
+      "total_accesses": 436422,
+      "shared_pages": 0,
+      "hot_pages": 1050
+    },
+    "13": {
+      "role": "private_kv",
+      "allocated_pages": 858,
+      "total_capacity": 4194304,
+      "utilization": 0.00020456314086914062,
+      "total_accesses": 1130054,
+      "shared_pages": 0,
+      "hot_pages": 858
+    },
+    "14": {
+      "role": "private_kv",
+      "allocated_pages": 1400,
+      "total_capacity": 4194304,
+      "utilization": 0.0003337860107421875,
+      "total_accesses": 961844,
+      "shared_pages": 0,
+      "hot_pages": 1400
+    },
+    "15": {
+      "role": "private_kv",
+      "allocated_pages": 1050,
+      "total_capacity": 4194304,
+      "utilization": 0.0002503395080566406,
+      "total_accesses": 729646,
+      "shared_pages": 0,
+      "hot_pages": 1050
+    }
+  },
+  "load_balance": {
+    "utilization_mean": 0.0002419203519821167,
+    "utilization_std": 0.00010774019646631435,
+    "utilization_max": 0.0004181861877441406,
+    "utilization_min": 0.0,
+    "imbalance_ratio": 1.7286110255620573,
+    "allocation_decisions": {
+      "locality_fallback": 50,
+      "locality_hit": 16185
+    }
+  },
+  "migration": {
+    "total_migrations": 0,
+    "total_migrated_mb": 0.0,
+    "total_migration_latency_ms": 0.0,
+    "avg_migration_latency_ns": 0.0,
+    "migration_log_size": 0
+  },
+  "paper_metrics": {
+    "utilization_std": 0.00010774019646631435,
+    "peak_utilization": 0.0004181861877441406,
+    "total_migrations": 0,
+    "migration_overhead_ms": 0.0,
+    "scheduling_efficiency": 0.6486541250616925
+  }
+}

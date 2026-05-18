@@ -1,0 +1,22 @@
+\chapter{相关工作}
+\label{ch:related_work}
+
+本章从基于 CXL 的内存分离、近内存加速和 LLM 服务系统三个方向，对本文的工作进行定位。
+
+\section{CXL 内存池化与分离}
+
+近期研究已经将 CXL 确立为一种具有现实可行性的内存扩展与池化基础设施。Pond 研究了云平台中的内存池化，DirectCXL 和 TPP 则探索了 CXL 使能内存层级中的直接访问与透明页放置策略~\cite{cxl_pond, direct_cxl, tpp}。类似地，CXL-ANNS 也将相关思想用于大规模、内存密集型数据结构~\cite{cxl_anns}。
+
+这些系统大多将 CXL 视为一种容量资源，并保留以主机为中心的 load/store 访问模型。本文关注的则是另一个瓶颈：分布式 KV 缓存状态上的 decode 阶段注意力归一化。因此，DisaggKV 不仅做容量池化，还进一步引入了面向长上下文推理的端点驱动点对点归约。
+
+\section{神经网络的存内计算}
+
+现代 PIM 的重新兴起，很大程度上源于机器学习工作负载中数据搬移成本的持续攀升。Samsung 的 HBM-PIM 及相关 accelerator-in-memory 设计，证明了在堆叠内存逻辑层中或其附近集成算术单元的可行性~\cite{samsung_pim, aim_samsung}。其他工作如 TransPIM 和 AttentionLego，则进一步探索了面向 Transformer 的内存中心加速方案~\cite{transpim, attentionlego}。
+
+然而，大多数既有 PIM 提案要么保留浮点非线性支持，要么面向更广泛的工作负载类别。相比之下，LKC-CXL-PIM 更专注于量化注意力执行，并强调在非线性阶段保持整数导向的数据通路。从这一点上说，它在思想上更接近 I-BERT 这类纯整数定量化工作，但其应用对象不是传统加速器流水线，而是近内存注意力引擎~\cite{llm_int8, pim_quant, goliath}。
+
+\section{多租户 LLM 服务系统}
+
+系统领域也已经形成了丰富的高效 LLM 服务研究。vLLM 通过 PagedAttention 改进了单节点服务栈中的 KV 缓存管理~\cite{vllm}。Orca 和 FlexGen 则从调度与内存管理角度研究了高吞吐自回归生成~\cite{orca, flexgen}。DistServe 与 Splitwise 进一步将 prefill 和 decode 分离到不同的计算资源上，以提升整体服务效率~\cite{distserve, splitwise}。
+
+在更大规模场景下，Ring Attention 和 sequence parallelism 通过多设备协同分布式执行注意力计算~\cite{ring_attention, seq_parallel}。这类方法通常默认使用加速器级链路和主机可见的集体通信机制。DisaggKV 则研究了一种成本更低、面向 CXL 的场景，其中分布式注意力通过端点侧标量归约和局部性感知页放置来协调完成。

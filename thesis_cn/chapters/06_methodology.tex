@@ -1,0 +1,53 @@
+\chapter{实验方法}
+\label{ch:methodology}
+
+本章介绍本文使用的评估方法。由于所提出的系统同时涉及内存时序、近内存逻辑、调度行为以及分布式 CXL Fabric 效应，单一模拟器不足以覆盖全部问题。因此，本文采用周期级单节点内存仿真、事件驱动 Fabric 建模以及基于综合结果的逻辑面积与功耗代理估计相结合的方法。
+
+\section{仿真基础设施}
+
+本文的评估建立在定制化的 \textbf{Ramulator 2.0} 框架之上，用于刻画单节点内存行为；同时结合一个更高层的 Python 事件模拟器，用于建模分布式 CXL Fabric 行为~\cite{ramulator2}。这种组合方式旨在在关键位置保留细粒度内存时序行为，同时又能让本文分析更大规模的多节点配置。
+
+\subsection{内存与 PIM 建模}
+
+单节点内存子系统被建模为工作在 2\,GHz 内存时钟下的 HBM3。Ramulator 2.0 被扩展以支持代表近内存流水线关键阶段的自定义 PIM 指令，包括量化计算和异常值处理。iNLU 数据通路通过定点 golden model 进行检查：输入 logit 采用 Q10 格式，多项式指数路径使用整数运算，归一化输出采用 Q24 整数商；异常值路由逻辑则通过 SystemVerilog 实现进行验证。相关面积与功耗数据以综合代理输入的形式纳入分析，而不被表述为一个完整布局布线芯片的实测结果。
+
+\subsection{CXL Fabric 拓扑模拟器}
+
+多 PIM 节点之间的分布式执行通过一个包裹在单节点时序模型外的事件驱动 CXL Fabric 模拟器进行评估。表~\ref{tab:sim_params} 总结了本文使用的主要系统参数。
+
+\begin{table}[htbp]
+\centering
+\caption[仿真参数]{内存模型与 CXL Fabric 模型所使用的系统仿真参数。}
+\label{tab:sim_params}
+\begin{tabular}{llc}
+\toprule
+\textbf{类别} & \textbf{参数} & \textbf{取值} \\
+\midrule
+\multirow{3}{*}{Memory (HBM3)} & Base Clock / Data Rate & 2.0 GHz / 4.0 Gbps \\
+                              & Channel Bandwidth      & 819 GB/s \\
+                              & tCAS / tRP / tRCD     & 14.5 / 14.5 / 14.5 ns \\
+\midrule
+\multirow{3}{*}{CXL 3.0 Fabric} & Link Width / Latency  & x16 (Gen6) / 150 ns \\
+                              & Switch Port BW        & 64 GB/s (Bi-dir) \\
+                              & Topology              & Star \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+该分布式模拟器支持 star 和 fat-tree 拓扑、显式交换机端口服务上限，以及共享链路上的排队时延。本文报告的 artifact 使用当前 CXL 配置文件中的 star 拓扑。这些机制被用来在相同名义带宽和基础时延假设下，对比主机聚合基线与点对点 DisaggKV 协议。
+
+对于吞吐--尾延迟曲线，模拟器计数会与一个校准后的排队模型结合使用。该模型使用 128K token 下 Ramulator 测得的读取延迟下降、CXL 交换机平均排队延迟，以及 128K 延迟分解中显式记录的 KV-cache I/O 占比。生成的数据文件会同时记录这些假设和派生曲线，以便区分实测计数与解析外推。
+
+\section{工作负载与分析踪迹}
+
+工作负载模型基于 \textbf{Qwen2.5-7B-Instruct} 配置，既包含单请求长上下文踪迹，也包含多租户服务踪迹。
+\begin{itemize}
+    \item \textbf{单节点踪迹：} 在 2K、8K、32K、64K 和 128K 上下文长度下评估 decode 踪迹，用于比较主机聚合基线与 LKC-CXL-PIM 的周期级差异。
+    \item \textbf{多租户踪迹：} 分布式实验使用 10--50\,req/s 范围内的泊松到达率，并设置 50 个并发虚拟用户。请求既包含长达 8K token 的共享前缀，也包含用户私有对话历史，使放置策略能够同时观测共享与私有访问模式。
+\end{itemize}
+
+\section{故障注入模型}
+
+为评估系统韧性，分布式模拟器包含一个均值无故障时间为 3600\,s 的泊松故障注入器。注入事件包括瞬时链路中断和节点性能退化。恢复时延分别针对 DisaggKV 的奇偶辅助恢复方案，以及两种额外开销更高的替代方案进行测量：主机级 RDMA 备份与 checkpoint-restart 恢复。
+
+综合来看，这一方法是混合式的，但内部保持一致：单节点路径采用周期级内存时序，分布式路径采用事件驱动排队与同步建模，而逻辑级效率趋势则由综合代理估计提供支持。

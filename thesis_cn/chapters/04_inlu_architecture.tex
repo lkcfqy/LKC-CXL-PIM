@@ -1,0 +1,128 @@
+\chapter{LKC-CXL-PIM：单节点体系结构}
+\label{ch:inlu_architecture}
+
+本章介绍本文的单节点部分，即 \textbf{LKC-CXL-PIM}（Long KV Cache via CXL Processing-in-Memory）。该设计针对第~\ref{ch:motivation} 章中识别出的两类单节点瓶颈：一是 KV 缓存在主机互联上的反复搬移，二是量化存储格式与浮点非线性执行之间的反复转换。
+
+\section{系统概览}
+
+LKC-CXL-PIM 将 KV 缓存保存在连接于 CXL 端点的 HBM 堆栈中，作为一层 CXL 附加内存扩展层。在 decode 过程中，主机不再反复把键和值张量拉回本地，而只广播当前查询向量 $\mathbf{Q}$ 及相关控制信息。随后，CXL 控制器将该操作分发到 HBM 堆栈的逻辑基底层，在存储 KV 缓存数据附近完成注意力打分和归一化步骤~\cite{attentionlego}。
+
+这种重组改变了 decode 阶段的主导数据流。历史稠密张量不再在每一步解码时穿越主机互联，片外接口主要传输的是规模较小的查询向量和响应向量。然而，要让这种数据流真正发挥作用，近内存逻辑就必须在保持整数数据通路的同时执行注意力中的非线性部分。
+
+\section{异常值感知路由与溢出处理}
+
+低精度推理的一大困难在于激活异常值。已有研究表明，大幅值激活虽然出现频率低，但会对量化 Transformer 推理精度造成不成比例的影响~\cite{llm_outliers}。因此，即便大多数值都处在标称范围内，单一路径的 INT8 数据通路仍会因截断而产生明显误差。
+
+为此，LKC-CXL-PIM 在前端加入了\textbf{异常值感知逻辑（Outlier-Aware Logic）}，用于区分常见激活和少量高幅值激活。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\begin{tikzpicture}[auto, >=Stealth,
+    data/.style={rectangle, draw=black!55, fill=gray!7, text width=2.25cm, align=center, rounded corners, minimum height=1.05cm, font=\small},
+    branch/.style={diamond, draw=black!55, fill=gray!10, aspect=1.9, text width=2.1cm, align=center, inner sep=0pt, font=\scriptsize\bfseries, minimum height=1.35cm},
+    common/.style={rectangle, draw=blue!65!black, fill=blue!7, text width=2.2cm, align=center, rounded corners, minimum height=1.05cm, font=\small\bfseries},
+    rare/.style={rectangle, draw=orange!70!black, fill=orange!12, text width=2.25cm, align=center, rounded corners, minimum height=1.05cm, font=\small\bfseries},
+    arrow/.style={thick, ->, rounded corners}]
+
+    \node[data] at (0,0) (input) {输入\\$\mathbf{X}$};
+    \node[branch] at (3.3,0) (classify) {$|x| < \Theta$?};
+    \node[common] at (7.0,0) (int8) {INT8 MAC\\主路径};
+    \node[rare] at (7.0,2.1) (overflow) {INT32 溢出\\缓冲区};
+    \node[data] at (10.6,0) (merge) {合并\\与输出};
+
+    \draw[arrow] (input) -- (classify);
+    \draw[arrow, draw=blue!70!black] (classify) -- node[near start, below=0.1cm, font=\scriptsize\bfseries, text=blue!70!black] {常见路径} (int8);
+    \draw[arrow, draw=orange!80!black] (classify) |- node[pos=0.38, left=0.05cm, font=\scriptsize\bfseries, text=orange!80!black] {异常值} (overflow);
+    \draw[arrow, draw=blue!70!black] (int8) -- (merge);
+    \draw[arrow, draw=orange!80!black] (overflow) -| (merge);
+\end{tikzpicture}
+}
+\caption[异常值感知数据通路]{异常值感知数据通路。绝大多数激活沿 INT8 主路径执行，少量异常值被重定向到高精度溢出缓冲区。}
+\label{fig:outlier}
+\end{figure}
+
+图~\ref{fig:outlier} 展示了该组织方式。满足 $|x| < \Theta$ 的激活会被量化后送入稠密 INT8 阵列；超出该范围的值则被视为异常值，转入一个小型 INT32 溢出缓冲区。在本文评估的设计中，16-entry 缓冲区已经足以恢复纯 INT8 路径损失的大部分精度，相关结果将在第~\ref{ch:evaluation} 章给出。当溢出路径短时拥塞时，控制器会暂停本地流水线，排空缓冲区后再继续执行。由于异常值本身较为稀疏，这一路径很少被触发，对吞吐的影响有限。
+
+\section{整数非线性单元（iNLU）}
+
+剩余的挑战在于 Softmax 中的非线性部分。标准实现通常用浮点形式计算指数函数，这既带来面积成本，也引入格式转换开销~\cite{flashattn2, newton_aim}。LKC-CXL-PIM 为此引入\textbf{整数非线性单元（iNLU）}，在整数定点域中逼近指数函数。
+
+iNLU 首先利用以 2 为底的分解形式重写指数函数：
+\begin{equation}
+e^x = 2^{x / \ln 2}
+\end{equation}
+定义
+\begin{equation}
+n = \left\lfloor \frac{x}{\ln 2} \right\rfloor, \qquad f = x - n \cdot \ln 2
+\end{equation}
+则有
+\begin{equation}
+e^x = 2^n \cdot e^f \quad (\text{其中 } 0 \leq f < \ln 2)
+\end{equation}
+由于 $f$ 被限制在较小区间内，非线性项 $e^f$ 可以用低阶多项式逼近，而无需大型查找表：
+\begin{equation}
+e^f \approx A \cdot (f + B)^2 + C
+\end{equation}
+其中 $A$、$B$ 和 $C$ 为所选定点格式下预先计算好的常数~\cite{llm_int8}。
+
+表~\ref{tab:synthesis_results} 给出了仅针对非线性单元本身的综合对比结果。这些数字只衡量 Softmax 相关逻辑，而不是整个 PIM 流水线的总面积；第~\ref{ch:evaluation} 章将进一步讨论整体逻辑层影响。
+
+\begin{table}[htbp]
+\centering
+\caption[非线性单元综合对比]{非线性单元本身的硬件综合对比：iNLU 与传统 FP16 Softmax 单元（TSMC 7\,nm，1\,GHz 目标频率）。}
+\label{tab:synthesis_results}
+\begin{tabular}{lccc}
+\toprule
+\textbf{指标} & \textbf{FP16 Softmax（基线）} & \textbf{iNLU（本文）} & \textbf{节省} \\
+\midrule
+Gate Count (K)          & 118.4  & 24.2   & 79.5\% \\
+Die Area (mm$^2$)       & 0.0461 & 0.0094 & 79.6\% \\
+Dynamic Power (mW)      & 17.8   & 3.6    & 79.8\% \\
+Max Frequency (GHz)     & 0.95   & 1.32   & 38.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\begin{tikzpicture}[auto, >=Stealth,
+    block/.style={rectangle, draw=blue!65!black, fill=blue!7, text width=2.2cm, align=center, rounded corners, minimum height=1.05cm, font=\small\bfseries},
+    logic/.style={rectangle, draw=black!55, fill=gray!7, text width=2cm, align=center, rounded corners, minimum height=1cm, font=\small},
+    reg/.style={rectangle, draw=black!55, fill=gray!18, text width=0.72cm, align=center, minimum height=1.12cm, font=\scriptsize\bfseries},
+    arrow/.style={->, thick, shorten >=1pt, shorten <=1pt}]
+
+    \node [block] at (0,0) (input) {Q10 logits\\($x_i$)};
+    \node [logic] at (2.7,0) (log2) {范围\\约简\\(Log2)};
+    \node [reg]   at (4.7,0) (r1) {REG};
+    \node [block] at (6.8,0) (poly) {整数\\多项式};
+    \node [reg]   at (8.9,0) (r2) {REG};
+    \node [logic] at (10.9,0) (denorm) {$2^n$\\移位缩放};
+    \node [block] at (13.6,0) (output) {Q24 指数\\输出};
+
+    \draw [arrow] (input) -- (log2);
+    \draw [arrow] (log2) -- (r1);
+    \draw [arrow] (r1) -- (poly);
+    \draw [arrow] (poly) -- (r2);
+    \draw [arrow] (r2) -- (denorm);
+    \draw [arrow] (denorm) -- (output);
+
+    \node[below=0.22cm of log2.south, font=\color{gray}, scale=0.75] {1. 范围约简};
+    \node[below=0.22cm of poly.south, font=\color{gray}, scale=0.75] {2. 多项式求值};
+    \node[below=0.22cm of denorm.south, font=\color{gray}, scale=0.75] {3. 移位缩放};
+\end{tikzpicture}%
+}
+\caption[iNLU 流水线结构]{整数非线性单元（iNLU）的流水线组织。}
+\label{fig:inlu}
+\end{figure}
+
+图~\ref{fig:inlu} 给出了最终数据通路。iNLU 被实现为一个平衡的四级流水线：
+\begin{enumerate}
+    \item \textbf{范围约简：} 计算与 $x / \ln 2$ 对应的整数商和余量。
+    \item \textbf{多项式准备：} 构造逼近函数所需的平移残差项。
+    \item \textbf{二次项求值：} 在定点域内计算低阶多项式。
+    \item \textbf{归一化：} 通过移位操作施加 $2^n$ 缩放。
+\end{enumerate}
+
+异常值感知前端与 iNLU 的结合，使注意力打分和归一化能够在内存阵列附近完成，而无需引入浮点 Softmax 模块。这正是后续单节点性能和面积收益的关键体系结构基础。

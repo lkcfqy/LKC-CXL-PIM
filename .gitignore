@@ -7,16 +7,19 @@
 *.log
 *.out
 *.toc
+*.lof
+*.lot
+*.xdv
 *.bbl
 *.blg
 *.pdfsync
 *.synctex.gz
 *.alg
 *.loa
+*.bcf
+*.run.xml
 
-# Keep the final PDFs in the root (academic preference)
-!pimmain.pdf
-!cxlmain.pdf
+# Final thesis PDFs under thesis/ and thesis_cn/ are tracked.
 
 # Python
 __pycache__/
@@ -26,6 +29,7 @@ venv/
 .env
 
 # Ramulator 2 & Build Artifacts
+build/
 ramulator2/build/
 ramulator2/ext/
 ramulator2/libramulator.so
@@ -35,7 +39,7 @@ obj_dir/
 
 # Big Data & Logs (Keep repo clean)
 logs/
-results/
+results/reproduce/
 traces/
 *.trace
 *.log

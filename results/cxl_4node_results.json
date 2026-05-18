@@ -1,0 +1,116 @@
+{
+  "config": {
+    "topology": "star",
+    "num_nodes": 4,
+    "switch_base_latency_ns": 150,
+    "port_bandwidth_gbps": 64
+  },
+  "switch_stats": {
+    "total_packets": 1230600,
+    "total_bytes": 79948800,
+    "total_queue_delay_ns": 1216343600,
+    "congestion_events": 1225400,
+    "per_port": {
+      "0": {
+        "node": 0,
+        "packets": 150,
+        "bytes": 307200,
+        "avg_queue_delay_ns": 356.0,
+        "congestion_events": 100
+      },
+      "1": {
+        "node": 1,
+        "packets": 418350,
+        "bytes": 27072000,
+        "avg_queue_delay_ns": 988.4967132783554,
+        "congestion_events": 416600
+      },
+      "2": {
+        "node": 2,
+        "packets": 418350,
+        "bytes": 27072000,
+        "avg_queue_delay_ns": 988.4967132783554,
+        "congestion_events": 416600
+      },
+      "3": {
+        "node": 3,
+        "packets": 393750,
+        "bytes": 25497600,
+        "avg_queue_delay_ns": 988.4825396825397,
+        "congestion_events": 392100
+      }
+    },
+    "avg_queue_delay_ns": 988.4150820737851,
+    "congestion_rate": 0.9957744189826101
+  },
+  "barrier_stats": {
+    "total_barriers": 0,
+    "total_stall_ns": 0,
+    "avg_stall_per_barrier_ns": 0.0,
+    "max_stall_ns": 0
+  },
+  "global_stats": {
+    "partial_sum_transfers": 600,
+    "partial_sum_bytes": 1228800,
+    "partial_sum_latency_ns": 457200,
+    "reduce_operations": 600,
+    "total_p2p_transfers": 1230000,
+    "total_p2p_bytes": 78720000,
+    "total_p2p_latency_ns": 1410470000,
+    "total_queue_delay_ns": 1216130000
+  },
+  "per_node": {
+    "0": {
+      "role": "shared_kv",
+      "local_accesses": 1230000,
+      "remote_reads_in": 0,
+      "remote_reads_out": 1230000,
+      "p2p_send_partial": 150,
+      "p2p_reduce_attn": 150,
+      "trace_entries": 1230000
+    },
+    "1": {
+      "role": "private_kv",
+      "local_accesses": 4056200,
+      "remote_reads_in": 418200,
+      "remote_reads_out": 0,
+      "p2p_send_partial": 150,
+      "p2p_reduce_attn": 150,
+      "trace_entries": 4056200
+    },
+    "2": {
+      "role": "private_kv",
+      "local_accesses": 4056200,
+      "remote_reads_in": 418200,
+      "remote_reads_out": 0,
+      "p2p_send_partial": 150,
+      "p2p_reduce_attn": 150,
+      "trace_entries": 4056200
+    },
+    "3": {
+      "role": "private_kv",
+      "local_accesses": 3817600,
+      "remote_reads_in": 393600,
+      "remote_reads_out": 0,
+      "p2p_send_partial": 150,
+      "p2p_reduce_attn": 150,
+      "trace_entries": 3817600
+    }
+  },
+  "p2p_latency_distribution": {
+    "mean_ns": 1146.7235772357724,
+    "median_ns": 1038.0,
+    "p95_ns": 2232.0,
+    "p99_ns": 2392.0,
+    "max_ns": 2424.0,
+    "total_transfers": 1230000
+  },
+  "paper_metrics": {
+    "total_local_accesses": 13160000,
+    "total_remote_accesses": 1230000,
+    "remote_access_ratio": 0.08547602501737317,
+    "total_p2p_data_gb": 0.07872,
+    "avg_switch_queue_delay_ns": 988.7235772357724,
+    "congestion_rate": 0.9957744189826101
+  }
+}

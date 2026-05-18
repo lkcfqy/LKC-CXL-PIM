@@ -1,0 +1,127 @@
+{
+  "config": {
+    "num_nodes": 4,
+    "mtbf_seconds": 3600,
+    "scheme": "PARITY",
+    "duration_s": 36000.0
+  },
+  "summary": {
+    "total_faults": 9,
+    "link_down_count": 7,
+    "degraded_count": 2,
+    "faults_per_node": {
+      "0": 3,
+      "1": 2,
+      "2": 3,
+      "3": 1
+    }
+  },
+  "recovery_latency_ms": {
+    "mean": 260.8284444444445,
+    "median": 216.38400000000001,
+    "p95": 416.384,
+    "p99": 416.384,
+    "max": 416.384,
+    "min": 216.38400000000001
+  },
+  "downtime_ms": {
+    "mean": 268.0477692410638,
+    "total": 2412.429923169574
+  },
+  "availability": {
+    "total_downtime_s": 2.412429923169574,
+    "uptime_percent": 99.99329880576897
+  },
+  "fault_log": [
+    {
+      "id": 0,
+      "node": 2,
+      "time_s": 8655.151,
+      "duration_ms": 8.73,
+      "type": "LINK_DOWN",
+      "recovery_ms": 216.384,
+      "total_downtime_ms": 225.1114,
+      "scheme": "parity"
+    },
+    {
+      "id": 1,
+      "node": 1,
+      "time_s": 8966.326,
+      "duration_ms": 9.78,
+      "type": "LINK_DOWN",
+      "recovery_ms": 216.384,
+      "total_downtime_ms": 226.1646,
+      "scheme": "parity"
+    },
+    {
+      "id": 2,
+      "node": 2,
+      "time_s": 20213.791,
+      "duration_ms": 5.05,
+      "type": "LINK_DOWN",
+      "recovery_ms": 216.384,
+      "total_downtime_ms": 221.4375,
+      "scheme": "parity"
+    },
+    {
+      "id": 3,
+      "node": 0,
+      "time_s": 24134.276,
+      "duration_ms": 6.79,
+      "type": "DEGRADED",
+      "recovery_ms": 416.384,
+      "total_downtime_ms": 423.1788,
+      "scheme": "parity"
+    },
+    {
+      "id": 4,
+      "node": 1,
+      "time_s": 28567.985,
+      "duration_ms": 5.99,
+      "type": "LINK_DOWN",
+      "recovery_ms": 216.384,
+      "total_downtime_ms": 222.3753,
+      "scheme": "parity"
+    },
+    {
+      "id": 5,
+      "node": 0,
+      "time_s": 31812.302,
+      "duration_ms": 6.68,
+      "type": "LINK_DOWN",
+      "recovery_ms": 216.384,
+      "total_downtime_ms": 223.069,
+      "scheme": "parity"
+    },
+    {
+      "id": 6,
+      "node": 0,
+      "time_s": 32617.177,
+      "duration_ms": 9.04,
+      "type": "LINK_DOWN",
+      "recovery_ms": 216.384,
+      "total_downtime_ms": 225.4221,
+      "scheme": "parity"
+    },
+    {
+      "id": 7,
+      "node": 3,
+      "time_s": 34118.689,
+      "duration_ms": 5.2,
+      "type": "LINK_DOWN",
+      "recovery_ms": 216.384,
+      "total_downtime_ms": 221.5845,
+      "scheme": "parity"
+    },
+    {
+      "id": 8,
+      "node": 2,
+      "time_s": 34765.365,
+      "duration_ms": 7.7,
+      "type": "DEGRADED",
+      "recovery_ms": 416.384,
+      "total_downtime_ms": 424.0869,
+      "scheme": "parity"
+    }
+  ]
+}

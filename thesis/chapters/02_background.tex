@@ -1,0 +1,45 @@
+\chapter{Background}
+\label{ch:background}
+
+This chapter gives only the background needed to understand the design choices later in the report. The thread running through the chapter is the same one that appeared in the traces: the KV cache grows linearly, but the penalty for that growth is paid repeatedly during decode. CXL helps with capacity, queueing explains why host-facing links become painful under load, and quantization explains why a near-memory design cannot simply attach a floating-point softmax block to an integer cache.
+
+\section{LLM Inference Dynamics and the KV Profile}
+
+Autoregressive Transformer inference repeatedly evaluates self-attention over an expanding history. During decode, the current query vector $\mathbf{Q}$ must be compared against the stored key and value tensors accumulated from previous tokens~\cite{flashattn}. The standard formulation is:
+\begin{equation}
+\label{eq:attn}
+\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Softmax}\left( \frac{\mathbf{Q} \mathbf{K}^T}{\sqrt{d}} \right) \mathbf{V}
+\end{equation}
+
+For a batch size $B$, sequence length $L$, number of attention heads $H$, and head dimension $d$, the storage requirement of an FP16 KV cache is:
+\begin{equation}
+    \text{Size}_{KV} = 2 \times B \times L \times H \times d \times (\text{2 bytes})
+\end{equation}
+Because the KV cache scales linearly with $L$, the stored state becomes the part of decode that is hardest to ignore. Prior systems work has shown the same tendency from a different angle: as sequences lengthen, more time and energy are spent managing the cache rather than only executing dense arithmetic~\cite{infinigen}.
+
+\section{Compute Express Link (CXL) and Tiered Memory}
+
+HBM offers very high bandwidth but limited capacity per accelerator package. As model size, batch size, and context length continue to grow, that fixed on-package capacity becomes increasingly restrictive. Compute Express Link (CXL) addresses this problem by enabling memory expansion and pooling over PCIe-based links while preserving a load/store programming model~\cite{cxl_standard}.
+
+Type-3 CXL devices act as memory expanders that can be mapped directly into the host memory space without requiring an RDMA-style communication stack~\cite{direct_cxl}. That programming model is convenient for long-context serving because the cache can spill into a larger tier without rewriting the application around explicit messages. The cost is the gap between local HBM and a fabric-attached device. HBM access is measured in tens of nanoseconds and provides aggregate bandwidth on the order of TB/s, whereas a CXL path provides lower bandwidth and higher traversal latency~\cite{tpp}. Moving the KV cache from HBM to CXL therefore fixes one problem while making another one more visible.
+
+\section{Queueing Theory and the Host-Aggregated Wall}
+
+In current host-aggregated CXL deployments, remote accesses are still routed through the Root Complex. When many endpoints serve long-context decode requests concurrently, the host-facing links and switch ports become shared queueing resources. A useful approximation is the M/D/1 queue:
+\begin{equation}
+\label{eq:queue}
+W_q = \frac{\rho}{2\mu(1 - \rho)} \quad \text{where} \quad \rho = \frac{\lambda}{\mu}
+\end{equation}
+Here, $\lambda$ is the aggregate arrival rate and $\mu$ is the service rate of the link or switch port~\cite{kleinrock}. In a long-context decode workload, the arrival term should be read as repeated fetch traffic for large KV-cache regions. Once utilization $\rho$ moves close to one, small increases in request rate produce a sharp increase in waiting time.
+
+This is the point where a capacity solution becomes a traffic problem. If decode continues to pull dense KV tensors toward the host, a larger memory pool only gives the system more remote state to fetch. Reducing $\lambda$ in this setting requires a dataflow change, not only a larger addressable memory space.
+
+\section{Processing-in-Memory and Model Quantization}
+
+Processing-in-Memory places simple arithmetic units close to the memory arrays so that a larger fraction of the data path remains on the memory device rather than crossing the package boundary~\cite{pim_survey}. For attention workloads, this is attractive because the stored keys and values can be consumed where they reside.
+
+\begin{sloppypar}
+The complication is that the software stack and the memory-side logic often optimize for different numeric formats. Quantization methods such as SmoothQuant and GPTQ shrink model state and activations into low-precision integer representations~\cite{llm_smoothquant, gptq}. Many PIM proposals, including commercial HBM-PIM examples, keep floating-point datapaths because they target a broader mix of kernels~\cite{samsung_pim}. A KV cache that is stored compactly may therefore have to be expanded before the nonlinear attention stage can run near memory.
+\end{sloppypar}
+
+If quantized KV-cache data must be repeatedly up-converted to floating point inside the memory logic, the endpoint pays conversion cost before it earns the benefit of locality. The single-node design in this thesis therefore uses an integer-oriented nonlinear path and treats floating-point softmax as the baseline to beat, not as the default assumption for a PIM endpoint.

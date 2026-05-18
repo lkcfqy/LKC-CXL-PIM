@@ -1,0 +1,73 @@
+\documentclass[11pt,a4paper,oneside,fontset=none]{ctexbook}
+
+\input{preamble}
+
+\begin{document}
+\pagenumbering{gobble}
+
+\begin{titlepage}
+    \begin{center}
+        \vspace*{2cm}
+
+        \Huge
+        \textbf{面向可扩展长上下文大语言模型的软硬件协同设计}
+
+        \vspace{0.5cm}
+        \LARGE
+        整数存内计算与 CXL 内存池化
+
+        \vspace{2cm}
+
+        \Large
+        \textbf{Kaichen Li}
+
+        \vfill
+
+        \vspace{1.5cm}
+        \vspace{0.8cm}
+
+        理学硕士学位论文
+
+        \vspace{1.5cm}
+
+        \textbf{计算机与信息工程系}\\
+        \textbf{灵山大学}\\
+        韩国\\
+        \vfill
+        2026年4月
+
+    \end{center}
+\end{titlepage}
+
+\cleardoublepage
+\frontmatter
+
+\chapter*{摘要}
+\addcontentsline{toc}{chapter}{摘要}
+长上下文已经成为大语言模型的重要能力之一，但长上下文解码的主要成本并不来自算术计算本身，而是来自键值缓存（Key-Value cache, KV cache）的存储与搬移。将 KV 缓存扩展到片上高带宽内存（HBM）之外，通常需要借助 Compute Express Link（CXL）进行内存扩容；然而，以主机为中心的 CXL 访问方式会在自回归注意力过程中引入明显的带宽压力和排队时延。
+
+本文围绕这一瓶颈研究了两类互补的体系结构方案。首先，提出 \textbf{LKC-CXL-PIM}：一种面向整数计算的 CXL 附加存内计算架构，在内存阵列附近直接执行 KV 缓存注意力。该设计以整数非线性单元（Integer Non-Linear Unit, iNLU）替代浮点非线性数据通路，并通过异常值感知路由保持量化 KV 数据在近内存计算过程中尽量停留在整数域。其次，提出 \textbf{DisaggKV}：一种面向多节点服务的分离式 CXL 内存池化框架。DisaggKV 将局部性感知的页面放置策略与 CXL 3.0 端点之间的点对点归约结合起来，使分布式 Softmax 归一化能够通过紧凑标量交换完成，而无需由主机搬运大规模张量。
+
+本文的评估结合了单节点内存行为的 Ramulator 2.0 周期级建模、分布式执行的事件驱动 CXL Fabric 仿真，以及用于逻辑面积和功耗趋势分析的综合代理估计。对于最长达 128K token 的上下文，LKC-CXL-PIM 将读取延迟降低了 98.9\% 以上，并相对于浮点基线实现了 17\% 的整体逻辑层面积缩减。在分布式场景中，DisaggKV 可以在大约 2.9K requests/s 之前维持 50\,ms 的尾延迟目标，将面向主机的互联流量降低 90\% 以上，并在故障注入实验中实现 95 百分位 416\,ms 的恢复延迟。这些结果表明，整数近内存执行与基于 CXL 的点对点归约，为可扩展的长上下文大语言模型服务提供了一条具有实际可行性的体系结构路径。
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\mainmatter
+
+\include{chapters/01_introduction}
+\include{chapters/02_background}
+\include{chapters/03_motivation}
+\include{chapters/04_inlu_architecture}
+\include{chapters/05_disaggkv_system}
+\include{chapters/06_methodology}
+\include{chapters/07_evaluation}
+\include{chapters/08_related_work}
+\include{chapters/09_conclusion}
+
+\backmatter
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

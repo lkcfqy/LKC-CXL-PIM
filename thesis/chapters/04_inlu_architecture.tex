@@ -1,0 +1,138 @@
+\chapter{LKC-CXL-PIM: Single-Node Architecture}
+\label{ch:inlu_architecture}
+
+This chapter describes the single-endpoint artifact, \textbf{LKC-CXL-PIM} (Long KV Cache via CXL Processing-in-Memory). The design is aimed at two costs measured in Chapter~\ref{ch:motivation}: moving historical K/V state back through the host path, and expanding compact KV data only to run a floating-point nonlinear stage.
+
+\section{Request Path at the CXL Endpoint}
+
+In the single-node artifact, the old K/V pages remain in the HBM stack behind the CXL endpoint. A decode step is issued as a descriptor, not as a request to pull the whole historical region back to the host. The descriptor includes the query vector $\mathbf{Q}$, the KV-page range, the head identifier, and the scale metadata used by the integer path. Once the CXL controller forwards it to the logic base die, the endpoint scores keys and accumulates values beside the cache lines that supply the data~\cite{attentionlego}.
+
+For the simulator, I made the endpoint deliberately narrow. It is a memory-side service attached to the KV pages, not a miniature GPU placed behind the CXL port. The reason is mechanical: the object that grows with context length is the HBM-resident KV history. A token step therefore sends in a descriptor and receives back a reduced attention vector. Under that boundary, the logic die needs local integer attention and the small overflow route; it does not need a general tensor core or a floating-point softmax block.
+
+\section{One-Token Walk Through HBM}
+
+The per-token path is short enough to state explicitly. The host schedules the request and runs the non-attention portions of the model. The endpoint handles only the KV range for the token being generated. After the descriptor arrives, local HBM streams key and value cache lines into the logic path. The endpoint computes integer dot products with the query, routes ordinary activations through the INT8 lane, and sends rare high-magnitude values through the overflow path. After the local maximum is found, the iNLU evaluates shifted exponentials and the endpoint updates the exponential sum and weighted-value accumulator.
+
+The live state during the walk is small. The endpoint updates the maximum logit, the exponential sum, and the weighted value accumulator as cache lines arrive. It does not build an attention matrix on the logic die. From the host side, the transaction is intentionally plain: submit the descriptor, let the endpoint traverse its KV pages, and receive the attention result.
+
+\section{Outlier-Aware Routing and Overflow Handling}
+
+The main nuisance in a low-precision attention path is not the average activation; it is the occasional large value. Prior work shows that these outliers are rare but can still dominate quantized Transformer accuracy~\cite{llm_outliers}. That creates a hardware trade-off that shows up directly in this design: a wide datapath sized for the rare value wastes area most of the time, but a narrow datapath that clips those values can change the attention result.
+
+LKC-CXL-PIM handles that case with an \textbf{Outlier-Aware Logic} front-end. The front-end does not try to make every activation expensive; it sorts the common values away from the few high-magnitude values that need more precision.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\begin{tikzpicture}[auto, >=Stealth,
+    data/.style={rectangle, draw=black!55, fill=gray!7, text width=2.25cm, align=center, rounded corners, minimum height=1.05cm, font=\small},
+    branch/.style={diamond, draw=black!55, fill=gray!10, aspect=1.9, text width=2.1cm, align=center, inner sep=0pt, font=\scriptsize\bfseries, minimum height=1.35cm},
+    common/.style={rectangle, draw=blue!65!black, fill=blue!7, text width=2.2cm, align=center, rounded corners, minimum height=1.05cm, font=\small\bfseries},
+    rare/.style={rectangle, draw=orange!70!black, fill=orange!12, text width=2.25cm, align=center, rounded corners, minimum height=1.05cm, font=\small\bfseries},
+    arrow/.style={thick, ->, rounded corners}]
+
+    \node[data] at (0,0) (input) {Input\\$\mathbf{X}$};
+    \node[branch] at (3.3,0) (classify) {$|x| < \Theta$?};
+    \node[common] at (7.0,0) (int8) {INT8 MAC\\main path};
+    \node[rare] at (7.0,2.1) (overflow) {INT32 overflow\\buffer};
+    \node[data] at (10.6,0) (merge) {Merge\\and output};
+
+    \draw[arrow] (input) -- (classify);
+    \draw[arrow, draw=blue!70!black] (classify) -- node[near start, below=0.1cm, font=\scriptsize\bfseries, text=blue!70!black] {common case} (int8);
+    \draw[arrow, draw=orange!80!black] (classify) |- node[pos=0.38, left=0.05cm, font=\scriptsize\bfseries, text=orange!80!black] {outlier} (overflow);
+    \draw[arrow, draw=blue!70!black] (int8) -- (merge);
+    \draw[arrow, draw=orange!80!black] (overflow) -| (merge);
+\end{tikzpicture}
+}
+\caption[Outlier-aware datapath]{Outlier-aware datapath. Most activations remain on the INT8 path, while rare outliers are redirected to a high-precision overflow buffer.}
+\label{fig:outlier}
+\end{figure}
+
+Figure~\ref{fig:outlier} illustrates the split. Activations satisfying $|x| < \Theta$ go to the dense INT8 array, while values outside that range are diverted into a small INT32 overflow buffer. The evaluated 16-entry buffer is a compromise: it recovers most of the accuracy lost by a pure INT8 path, but it remains small enough not to dominate the logic-die budget. When the overflow path fills, the local controller stalls, drains the buffered entries, and then resumes. That stall is a correctness backstop rather than the expected steady-state behavior.
+
+\section{Integer Non-Linear Unit (iNLU)}
+
+After the routing decision, the expensive piece is the softmax exponential. A conventional implementation would leave the compact KV path, evaluate the nonlinear operation in floating point, and then return to the narrower representation~\cite{flashattn2, newton_aim}. LKC-CXL-PIM avoids that detour with an \textbf{Integer Non-Linear Unit (iNLU)} that evaluates the approximation in a fixed-point integer domain.
+
+The iNLU begins by rewriting the exponential using a base-2 decomposition:
+\begin{equation}
+e^x = 2^{x / \ln 2}
+\end{equation}
+Let
+\begin{equation}
+n = \left\lfloor \frac{x}{\ln 2} \right\rfloor, \qquad f = x - n \cdot \ln 2
+\end{equation}
+so that
+\begin{equation}
+e^x = 2^n \cdot e^f \quad (\text{where } 0 \leq f < \ln 2)
+\end{equation}
+The constrained interval for $f$ allows the nonlinear term $e^f$ to be approximated with a low-order polynomial rather than a large lookup table:
+\begin{equation}
+e^f \approx A \cdot {(f + B)}^2 + C
+\end{equation}
+where $A$, $B$, and $C$ are precomputed constants in the chosen fixed-point format~\cite{llm_int8}.
+
+Table~\ref{tab:synthesis_results} reports the synthesis comparison for the nonlinear unit itself. I keep it separate from the full-system evaluation because the iNLU is only one block in the endpoint. The table answers a more local question: whether the softmax logic can stay small enough that the benefit of moving computation near memory is not lost to a newly introduced floating-point unit.
+
+\begin{table}[htbp]
+\centering
+\caption[Softmax-unit synthesis comparison]{Hardware synthesis comparison of the nonlinear unit only: iNLU versus a conventional FP16 softmax unit (TSMC 7\,nm, 1\,GHz target).}
+\label{tab:synthesis_results}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Metric} & \textbf{FP16 Softmax (Baseline)} & \textbf{iNLU (Ours)} & \textbf{Savings} \\
+\midrule
+Gate Count (K)          & 118.4  & 24.2   & 79.5\% \\
+Die Area (mm$^2$)       & 0.0461 & 0.0094 & 79.6\% \\
+Dynamic Power (mW)      & 17.8   & 3.6    & 79.8\% \\
+Max Frequency (GHz)     & 0.95   & 1.32   & 38.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\begin{tikzpicture}[auto, >=Stealth,
+    block/.style={rectangle, draw=blue!65!black, fill=blue!7, text width=2.2cm, align=center, rounded corners, minimum height=1.05cm, font=\small\bfseries},
+    logic/.style={rectangle, draw=black!55, fill=gray!7, text width=2.0cm, align=center, rounded corners, minimum height=1.0cm, font=\small},
+    reg/.style={rectangle, draw=black!55, fill=gray!18, text width=0.72cm, align=center, minimum height=1.12cm, font=\scriptsize\bfseries},
+    arrow/.style={->, thick, shorten >=1pt, shorten <=1pt}]
+
+    \node [block] at (0,0) (input) {Q10 logits\\($x_i$)};
+    \node [logic] at (2.7,0) (log2) {Range \\ Reduction \\ (Log2)};
+    \node [reg]   at (4.7,0) (r1) {REG};
+    \node [block] at (6.8,0) (poly) {Integer \\ Polynomial};
+    \node [reg]   at (8.9,0) (r2) {REG};
+    \node [logic] at (10.9,0) (denorm) {Power-of-two \\ Shift};
+    \node [block] at (13.6,0) (output) {Q24 exp \\ output};
+
+    \draw [arrow] (input) -- (log2);
+    \draw [arrow] (log2) -- (r1);
+    \draw [arrow] (r1) -- (poly);
+    \draw [arrow] (poly) -- (r2);
+    \draw [arrow] (r2) -- (denorm);
+    \draw [arrow] (denorm) -- (output);
+
+    \node[below=0.22cm of log2.south, font=\itshape\color{gray}, scale=0.75] {1. Range reduction};
+    \node[below=0.22cm of poly.south, font=\itshape\color{gray}, scale=0.75] {2. Polynomial evaluation};
+    \node[below=0.22cm of denorm.south, font=\itshape\color{gray}, scale=0.75] {3. Shift scaling};
+\end{tikzpicture}%
+}
+\caption[iNLU pipeline architecture]{Pipeline organization of the Integer Non-Linear Unit (iNLU).}
+\label{fig:inlu}
+\end{figure}
+
+Figure~\ref{fig:inlu} shows the resulting datapath. In the checked model, the iNLU is split into four fixed-point stages: range reduction for the quotient and residual of $x / \ln 2$, construction of the shifted residual term, quadratic polynomial evaluation, and final power-of-two scaling. The last operation is deliberately implemented as a shift, so the endpoint does not reintroduce the floating-point multiply that the design is trying to avoid.
+
+\section{Fixed-Point Error Checks}
+
+The fixed-point check starts at the same point as the software reference: after maximum subtraction. In this artifact the iNLU receives Q10 logits and returns Q24 normalized outputs. That split came from the reduction path rather than from a preference for round numbers. The accumulator needs extra fractional detail once exponentials are summed, but the endpoint should still remain an integer datapath. The constants are therefore tied to the Qwen2.5-7B-Instruct trace setup used here, not proposed as a universal format.
+
+I check the error budget in two places. Inside the iNLU, range reduction clamps values outside the calibrated interval before polynomial evaluation; the golden model stores $\ln 2$ as 710 in Q10 and uses the quadratic triplet $(367, 1385, 352)$. Before the iNLU, the classifier catches high-magnitude activations that could change either the local maximum or the weighted value sum.
+
+Most activations still take the dense INT8 lane. I reserve the overflow buffer for samples that can actually move the attention output, which is why the evaluation looks at the final weighted vector instead of treating the exponential approximation as an isolated microbenchmark.
+
+The accuracy comparison is made at the attention output, not by demanding bitwise equality against FP32 softmax. A smaller nonlinear unit is useful only when the final weighted vector remains close to the reference. Chapter~\ref{ch:evaluation} therefore reports both softmax-level mean-squared error and vector-level cosine similarity. A scalar exponential test would be too narrow, because a small local approximation error can still perturb the weighted value vector.
+
+The classifier and the iNLU are paired for this reason. The classifier keeps the common datapath compact without discarding rare large values, and the iNLU keeps the nonlinear stage in the integer path. The evaluation later measures what changes when that work remains inside the CXL-attached memory stack instead of returning to the host-facing side.

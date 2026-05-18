@@ -1,0 +1,71 @@
+\chapter{Experimental Methodology}
+\label{ch:methodology}
+
+The evaluation uses several models because the artifact spans different time scales. HBM row timing needs a cycle-level memory simulator. Multi-endpoint CXL behavior needs an event model with queues and switch-port service limits. The nonlinear datapath is better represented by synthesis-derived proxy numbers than by a memory simulator. This chapter records how those pieces meet, since the reported curves mix direct counters with calibrated estimates only where the connection is explicit.
+
+\section{Simulation Infrastructure}
+
+I use the simulators for different jobs. The customized \textbf{Ramulator 2.0} setup is responsible for single-node timing, including bank timing, row-buffer behavior, and the added PIM commands~\cite{ramulator2}. The Python event model is responsible for multi-node CXL behavior: packet routing, endpoint synchronization, and shared-link queues. The two parts meet through the measured endpoint service cost from the single-node run, so the cluster model does not rely on a manually selected speedup constant.
+
+\subsection{Memory and PIM Modeling}
+
+The single-node substrate is HBM3 at a 2\,GHz memory clock. The Ramulator command set is extended with PIM operations for the integer compute path and the overflow path. For arithmetic validation, the iNLU is compared against a fixed-point golden model with Q10 logits, integer polynomial exponentiation, and Q24 normalization. The outlier-routing block is checked against the SystemVerilog implementation. Area and power are used as synthesis-derived proxy inputs; I do not present them as a completed place-and-route result.
+
+\subsection{CXL Fabric Topology Emulator}
+
+Distributed execution across multiple PIM nodes is evaluated using an event-driven CXL-fabric simulator wrapped around the single-node timing model. Table~\ref{tab:sim_params} summarizes the principal system parameters used in the thesis.
+
+\begin{table}[htbp]
+\centering
+\caption[Simulation parameters]{System simulation parameters used for the memory and CXL-fabric models.}
+\label{tab:sim_params}
+\begin{tabular}{llc}
+\toprule
+\textbf{Category} & \textbf{Parameter} & \textbf{Value} \\
+\midrule
+\multirow{3}{*}{Memory (HBM3)} & Base Clock / Data Rate & 2.0 GHz / 4.0 Gbps \\
+                              & Channel Bandwidth      & 819 GB/s \\
+                              & tCAS / tRP / tRCD     & 14.5 / 14.5 / 14.5 ns \\
+\midrule
+\multirow{3}{*}{CXL 3.0 Fabric} & Link Width / Latency  & x16 (Gen6) / 150 ns \\
+                              & Switch Port BW        & 64 GB/s (Bi-dir) \\
+                              & Topology              & Star \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The distributed simulator supports star and fat-tree topologies, explicit switch-port service limits, and queueing delay at shared links. The reported artifact uses the star topology from the checked-in CXL configuration. I chose the plainer topology because the comparison should be about the data path: host aggregation and peer-to-peer DisaggKV see the same bandwidth and base-latency assumptions.
+
+The curves in Chapter~\ref{ch:evaluation} are not taken from a single opaque simulator output. For each topology, the event model first records bytes moved, service events, and switch-port occupancy. A later queueing pass folds in three calibration inputs: the 128K-token Ramulator read-latency delta, the average switch delay used by the fabric model, and the KV-cache I/O share measured in the 128K latency breakdown. I keep those intermediate values next to the plotted numbers so that a changed curve can be traced to traffic, service time, or one of the calibration constants.
+
+\section{Baseline Rows in the Data Files}
+
+In \path{simulation_results.csv}, the baseline label means that the memory tier is larger, but attention still finishes outside the memory device. The baseline and LKC-CXL-PIM rows use the same 2K--128K decode traces and the same cache-footprint estimates. The controlled difference is the reduction point. The baseline brings K/V traffic back through the host-facing path before the attention result exists; LKC-CXL-PIM performs the local cache walk and reduction at the endpoint, then returns the compact response over CXL.
+
+The cluster-level comparison follows the same rule. Fabric knobs, request arrivals, and endpoint timing are held fixed. The baseline sends partial attention state through the host-facing path; DisaggKV keeps the scalar reductions inside the endpoint group. I do not claim this covers every production optimization. It isolates one data-path decision under the same workload and fabric assumptions.
+
+\section{Workloads and Analytical Traces}
+
+The workload model is derived from a \textbf{Qwen2.5-7B-Instruct} configuration. I use two trace families because one trace shape is not enough to exercise both artifacts:
+\begin{itemize}
+    \item \textbf{Single-Node Traces:} Decode traces are evaluated at 2K, 8K, 32K, 64K, and 128K context lengths. These traces drive the cycle-accurate comparison between the host-aggregated baseline and LKC-CXL-PIM.
+    \item \textbf{Multi-Tenant Traces:} The distributed experiments use Poisson arrival rates from 10 to 50 requests/s with 50 concurrent virtual users. Requests include shared prefixes up to 8K tokens long and user-private dialogue history, allowing the placement policy to see both shared and private access patterns.
+\end{itemize}
+
+\section{Recovery Timing under Injected Faults}
+
+Fault timing is measured from injector event to the next point where the endpoint group can continue the modeled reduction. The injector assumes a 3600\,s mean time between failures and includes transient link disruption plus degraded-node behavior. Host-level RDMA backup and checkpoint-restart are included as heavier reference paths; they are intentionally not tuned to look competitive with local parity repair.
+
+\section{Where the Numbers Come From}
+
+Most plotted numbers are regenerated from files committed with the artifact. The file \path{simulation_results.csv} supplies the single-node tables. The file \path{paper_assets/data/paper_metrics.json} stores distributed simulator counters together with the queueing assumptions. Fixed-point softmax and attention-quality figures come from validation outputs under \path{paper_assets/data/}. I keep these sources separate so the report does not blur direct simulator counters with calibrated estimates.
+
+The figures are regenerated by project scripts before they are included in the report. If a future run changes the raw counters, the thesis text should change together with the data summaries. I kept that rule during editing because it prevents the document from drifting away from the artifact and leaves an auditable path from trace generation to plotted result.
+
+\section{Limits of the Evidence}
+
+This section is where I draw the line around the evidence. The area and power tables describe the nonlinear datapath and logic-die budget at the level of synthesis-derived estimates; they are not signoff numbers from placement and routing. The distributed simulator includes the CXL service limits, switch queues, reduction traffic, 50 virtual users, and the star topology used in the checked configuration. It leaves out vendor controller details, firmware scheduling policy, NUMA placement, and operating-system interrupt behavior. The model-quality evidence is also deliberately small: it checks softmax fidelity and a lightweight attention-output comparison, but it is not a substitute for full perplexity or downstream-task evaluation on a production LLM.
+
+Inside that envelope, the runs point in one direction. Less KV-derived data returns through the host-facing path, and the tail-latency knee moves to a higher request rate. I stop the claim there. A prototype would be needed before making stronger statements about operating-system overheads, controller firmware behavior, thermal limits, or model-quality impact.
+
+Taken together, the methodology is hybrid but traceable: cycle-level memory timing for the single-node path, event-driven queueing and synchronization for the distributed path, and synthesis-derived proxy estimates for logic-level efficiency trends.

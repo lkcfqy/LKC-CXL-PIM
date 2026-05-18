@@ -1,0 +1,16 @@
+\chapter{Conclusion and Future Work}
+\label{ch:conclusion}
+
+This report started from the part of long-context serving that becomes hard to ignore at large context sizes: the KV cache grows with the conversation, and decode returns to that history one token at a time. I studied the problem at two levels, first inside one CXL-attached HBM endpoint and then across a distributed CXL memory pool.
+
+\section{What the Artifacts Show}
+
+The single-node result is mostly a data-movement result. LKC-CXL-PIM is not just extra memory behind the host; it changes where the repeated attention traversal runs. In the evaluated 128K-token case, read latency falls from 77.90 million cycles to 0.80 million cycles, and normalized logic-die area drops from 1.00 to 0.83. The important detail is that locality and numeric format have to move together. Near-memory attention is much less useful if the endpoint first expands the compact cache into a floating-point path.
+
+At pool scale, I would phrase the lesson in terms of coupling. A shared prefix page should remain easy for later requests to attach to; a private continuation page should not quietly turn one endpoint into the request's history store; and the shards still need one maximum and one exponential sum for the current token. In the modeled workload, DisaggKV stays under the 50\,ms tail target until about 2.9K requests/s, scales nearly linearly through eight nodes, and recovers within one second in injected-fault runs. The result is modest, but useful for the design direction: the CXL fabric can carry endpoint-side reduction messages instead of repeatedly pulling much larger historical K/V tensors back through the host-facing path.
+
+\section{Future Outlook}
+
+The next step I would trust most is a prototype that reduces the modeling distance in this report. The current evidence comes from cycle-level memory simulation, event-driven fabric simulation, and synthesis-derived proxy estimates. A fuller RTL or hardware platform would expose controller timing, physical integration cost, and the interaction with a real host runtime. The scheduler also needs experiments with larger fabrics, richer topologies, and workload mixes that change over time. Finally, the iNLU path should be evaluated with end-to-end perplexity and downstream-task measurements, not only the softmax and attention-output checks used here.
+
+The results do not close the topic, but they make the design direction clearer. Long-context serving does not have to stay tied to host-centric KV-cache movement. Integer near-memory execution and peer-to-peer CXL reduction provide a practical path for scaling the memory side of long-context LLM systems.

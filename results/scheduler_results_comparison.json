@@ -1,0 +1,252 @@
+{
+  "round_robin": {
+    "config": {
+      "num_nodes": 4,
+      "policy": "ROUND_ROBIN",
+      "topology": "star"
+    },
+    "trace_stats": {
+      "total_lines": 10737440,
+      "write_operations": 259728,
+      "unique_requests": 50,
+      "total_tokens_allocated": 259728
+    },
+    "page_table": {
+      "total_allocations": 16235,
+      "total_frees": 0,
+      "total_lookups": 0,
+      "shared_page_hits": 227280,
+      "active_pages": 16235
+    },
+    "per_node": {
+      "0": {
+        "role": "shared_kv",
+        "allocated_pages": 350,
+        "total_capacity": 4194304,
+        "utilization": 8.344650268554688e-05,
+        "total_accesses": 227280,
+        "shared_pages": 350,
+        "hot_pages": 350
+      },
+      "1": {
+        "role": "private_kv",
+        "allocated_pages": 5295,
+        "total_capacity": 4194304,
+        "utilization": 0.0012624263763427734,
+        "total_accesses": 3405176,
+        "shared_pages": 0,
+        "hot_pages": 5294
+      },
+      "2": {
+        "role": "private_kv",
+        "allocated_pages": 5295,
+        "total_capacity": 4194304,
+        "utilization": 0.0012624263763427734,
+        "total_accesses": 3424856,
+        "shared_pages": 0,
+        "hot_pages": 5295
+      },
+      "3": {
+        "role": "private_kv",
+        "allocated_pages": 5295,
+        "total_capacity": 4194304,
+        "utilization": 0.0012624263763427734,
+        "total_accesses": 3414494,
+        "shared_pages": 0,
+        "hot_pages": 5295
+      }
+    },
+    "load_balance": {
+      "utilization_mean": 0.0009676814079284668,
+      "utilization_std": 0.000510513260568863,
+      "utilization_max": 0.0012624263763427734,
+      "utilization_min": 8.344650268554688e-05,
+      "imbalance_ratio": 1.218355404989221,
+      "allocation_decisions": {
+        "shared": 350,
+        "round_robin": 15885
+      }
+    },
+    "migration": {
+      "total_migrations": 0,
+      "total_migrated_mb": 0.0,
+      "total_migration_latency_ms": 0.0,
+      "avg_migration_latency_ns": 0.0,
+      "migration_log_size": 0
+    },
+    "paper_metrics": {
+      "utilization_std": 0.000510513260568863,
+      "peak_utilization": 0.0012624263763427734,
+      "total_migrations": 0,
+      "migration_overhead_ms": 0.0,
+      "scheduling_efficiency": 0.4724366342206284
+    }
+  },
+  "least_loaded": {
+    "config": {
+      "num_nodes": 4,
+      "policy": "LEAST_LOADED",
+      "topology": "star"
+    },
+    "trace_stats": {
+      "total_lines": 10737440,
+      "write_operations": 259728,
+      "unique_requests": 50,
+      "total_tokens_allocated": 259728
+    },
+    "page_table": {
+      "total_allocations": 16235,
+      "total_frees": 0,
+      "total_lookups": 0,
+      "shared_page_hits": 227280,
+      "active_pages": 16235
+    },
+    "per_node": {
+      "0": {
+        "role": "shared_kv",
+        "allocated_pages": 350,
+        "total_capacity": 4194304,
+        "utilization": 8.344650268554688e-05,
+        "total_accesses": 227280,
+        "shared_pages": 350,
+        "hot_pages": 350
+      },
+      "1": {
+        "role": "private_kv",
+        "allocated_pages": 5270,
+        "total_capacity": 4194304,
+        "utilization": 0.0012564659118652344,
+        "total_accesses": 3393054,
+        "shared_pages": 0,
+        "hot_pages": 5269
+      },
+      "2": {
+        "role": "private_kv",
+        "allocated_pages": 5342,
+        "total_capacity": 4194304,
+        "utilization": 0.0012736320495605469,
+        "total_accesses": 3450856,
+        "shared_pages": 0,
+        "hot_pages": 5342
+      },
+      "3": {
+        "role": "private_kv",
+        "allocated_pages": 5273,
+        "total_capacity": 4194304,
+        "utilization": 0.001257181167602539,
+        "total_accesses": 3400616,
+        "shared_pages": 0,
+        "hot_pages": 5273
+      }
+    },
+    "load_balance": {
+      "utilization_mean": 0.0009676814079284668,
+      "utilization_std": 0.0005105594390789352,
+      "utilization_max": 0.0012736320495605469,
+      "utilization_min": 8.344650268554688e-05,
+      "imbalance_ratio": 1.2299353249153064,
+      "allocation_decisions": {
+        "shared": 350,
+        "least_loaded": 15885
+      }
+    },
+    "migration": {
+      "total_migrations": 0,
+      "total_migrated_mb": 0.0,
+      "total_migration_latency_ms": 0.0,
+      "avg_migration_latency_ns": 0.0,
+      "migration_log_size": 0
+    },
+    "paper_metrics": {
+      "utilization_std": 0.0005105594390789352,
+      "peak_utilization": 0.0012736320495605469,
+      "total_migrations": 0,
+      "migration_overhead_ms": 0.0,
+      "scheduling_efficiency": 0.47238891344218437
+    }
+  },
+  "locality_aware": {
+    "config": {
+      "num_nodes": 4,
+      "policy": "LOCALITY_AWARE",
+      "topology": "star"
+    },
+    "trace_stats": {
+      "total_lines": 10737440,
+      "write_operations": 259728,
+      "unique_requests": 50,
+      "total_tokens_allocated": 259728
+    },
+    "page_table": {
+      "total_allocations": 16235,
+      "total_frees": 0,
+      "total_lookups": 0,
+      "shared_page_hits": 227280,
+      "active_pages": 16235
+    },
+    "per_node": {
+      "0": {
+        "role": "shared_kv",
+        "allocated_pages": 350,
+        "total_capacity": 4194304,
+        "utilization": 8.344650268554688e-05,
+        "total_accesses": 227280,
+        "shared_pages": 350,
+        "hot_pages": 350
+      },
+      "1": {
+        "role": "private_kv",
+        "allocated_pages": 6189,
+        "total_capacity": 4194304,
+        "utilization": 0.0014755725860595703,
+        "total_accesses": 3826254,
+        "shared_pages": 0,
+        "hot_pages": 6188
+      },
+      "2": {
+        "role": "private_kv",
+        "allocated_pages": 5950,
+        "total_capacity": 4194304,
+        "utilization": 0.0014185905456542969,
+        "total_accesses": 4116436,
+        "shared_pages": 0,
+        "hot_pages": 5950
+      },
+      "3": {
+        "role": "private_kv",
+        "allocated_pages": 3746,
+        "total_capacity": 4194304,
+        "utilization": 0.0008931159973144531,
+        "total_accesses": 2301836,
+        "shared_pages": 0,
+        "hot_pages": 3746
+      }
+    },
+    "load_balance": {
+      "utilization_mean": 0.0009676814079284668,
+      "utilization_std": 0.0005587270951497797,
+      "utilization_max": 0.0014755725860595703,
+      "utilization_min": 8.344650268554688e-05,
+      "imbalance_ratio": 1.4386202648598707,
+      "allocation_decisions": {
+        "shared": 350,
+        "locality_fallback": 49,
+        "locality_hit": 15836
+      }
+    },
+    "migration": {
+      "total_migrations": 0,
+      "total_migrated_mb": 0.0,
+      "total_migration_latency_ms": 0.0,
+      "avg_migration_latency_ns": 0.0,
+      "migration_log_size": 0
+    },
+    "paper_metrics": {
+      "utilization_std": 0.0005587270951497797,
+      "peak_utilization": 0.0014755725860595703,
+      "total_migrations": 0,
+      "migration_overhead_ms": 0.0,
+      "scheduling_efficiency": 0.4226125555663439
+    }
+  }
+}

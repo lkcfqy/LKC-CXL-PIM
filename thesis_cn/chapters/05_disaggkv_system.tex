@@ -1,0 +1,92 @@
+\chapter{DisaggKV：多节点服务系统}
+\label{ch:disaggkv_system}
+
+单节点 LKC-CXL-PIM 设计降低了单个主机-内存域内部 decode 阶段的数据搬移。但实际服务系统还必须支持大量并发用户，以及超出单个端点可容纳规模的聚合 KV 缓存。本章介绍 \textbf{DisaggKV}，这是一个分布式扩展方案，将局部性感知的内存放置与 CXL 附加 PIM 节点之间的点对点归约相结合。
+
+\section{多租户分离式架构概览}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.82\textwidth}{!}{%
+\begin{tikzpicture}[
+    host/.style={rectangle, draw=black!55, fill=gray!7, thick, minimum width=3.2cm, minimum height=1.05cm, align=center, rounded corners, font=\small\bfseries},
+    switch/.style={regular polygon, regular polygon sides=6, draw=black!55, fill=gray!10, thick, minimum size=2.35cm, inner sep=0pt, align=center, font=\small\bfseries},
+    pim/.style={rectangle, draw=blue!65!black, fill=blue!7, thick, minimum width=2.1cm, minimum height=0.95cm, align=center, rounded corners, font=\small\bfseries},
+    arrow/.style={thick, -Stealth}
+]
+    \node[host] (host) at (0,0) {Host CPU/GPU\\{\footnotesize Root port}};
+    \node[switch] (switch) at (0,-2.5) {CXL 3.0\\Fabric};
+
+    \node[pim] (n1) at (-3.0,-5.2) {PIM Node 1};
+    \node[pim] (n2) at (0,-5.2) {PIM Node 2};
+    \node[pim] (n3) at (3.0,-5.2) {PIM Node 3};
+
+    \draw[arrow, draw=blue!70!black] (host) -- node[right=0.2cm, font=\scriptsize\bfseries, text=blue!70!black, align=left] {广播查询\\$\mathbf{Q}$} (switch);
+    \draw[arrow, draw=blue!70!black] (switch) -- (n1);
+    \draw[arrow, draw=blue!70!black] (switch) -- (n2);
+    \draw[arrow, draw=blue!70!black] (switch) -- (n3);
+
+    \draw[arrow, dashed, draw=gray!70, bend left=40] (n1.west) to node[midway, left=0.35cm, font=\scriptsize\bfseries, text=gray!70, align=center] {主机聚合\\基线} (host.west);
+    \draw[<->, thick, dashed, draw=green!50!black] (n1.north) to[bend left=25] node[midway, above=0.12cm, font=\scriptsize\bfseries, text=green!45!black] {P2P 归约} (n2.north);
+    \draw[<->, thick, dashed, draw=green!50!black] (n2.north) to[bend left=25] (n3.north);
+\end{tikzpicture}
+}
+\caption[DisaggKV 系统概览]{DisaggKV 的体系结构概览。查询向量由主机广播，而分布式 Softmax 屏障所需的同步状态则直接在 CXL 附加 PIM 节点之间交换。}
+\label{fig:disaggkv_overview}
+\end{figure}
+
+图~\ref{fig:disaggkv_overview} 对比了 DisaggKV 与主机聚合基线。在传统设计中，每个远端端点都需要把部分张量或中间结果返回给 Root Complex 进行汇总。对于长上下文 decode，这会在面向主机的链路和交换机端口上形成集中瓶颈~\cite{cxl_pond}。DisaggKV 则将 CXL Fabric 视为一种归约基底：主机仅发出当前查询并接收最终响应，而分布式 Softmax 所需的中间标量同步状态，则由各 PIM 端点直接交换。
+
+\section{Hypervisor 局部性感知分页}
+
+多租户 LLM 服务同时呈现共享与私有两类内存行为。许多请求会重用同一系统提示词或公共前缀，而用户生成的续写内容和私有历史则保持各自独立。如果放置策略忽略这种差异，就会无谓地复制或迁移共享数据~\cite{splitwise}。
+
+因此，DisaggKV 引入了\textbf{局部性感知放置策略（Locality-Aware Placement Policy）}。共享提示页优先放置在指定的共享节点上，私有 KV 页则分散到其余节点中。其目标不仅是平衡容量，更是减少高复用前缀所导致的跨节点流量。此外，后台迁移守护进程会持续监测节点利用率，并在负载长时间失衡时迁移私有 KV 页。
+
+\section{基于点对点 Fabric 的同步}
+
+分布式注意力不仅需要容量池化，还需要跨节点的一致归一化。各节点本地计算出的 Softmax 结果不能直接独立组合，因为每个节点都必须基于全局最大值与全局指数和完成归一化~\cite{ring_attention}。
+
+DisaggKV 通过两阶段点对点归约协议完成该同步：
+\begin{enumerate}
+    \item \textbf{屏障阶段 1（全局最大值）：} 每个节点先计算本地最大值 $L_{\max}$，然后与其他参与节点交换该标量，直到建立共享的 \texttt{Global\_Max}。
+    \item \textbf{屏障阶段 2（全局求和）：} 每个节点在共享最大值基础上计算本地指数和，并继续参与第二轮归约，生成 \texttt{Global\_Sum}。
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.86\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=1.0cm and 1.0cm,
+    data/.style={rectangle, draw=black!55, fill=gray!7, rounded corners, minimum width=2.7cm, minimum height=0.9cm, align=center, font=\small},
+    stage/.style={rectangle, draw=blue!65!black, fill=blue!7, rounded corners, minimum width=2.8cm, minimum height=0.95cm, align=center, font=\small\bfseries},
+    sync/.style={rectangle, draw=green!45!black, fill=green!8, rounded corners, minimum width=3.1cm, minimum height=0.95cm, align=center, font=\small\bfseries},
+    arrow/.style={-Stealth, thick},
+    soft/.style={-Stealth, thick, dashed, draw=green!45!black}
+]
+    \node[data] (logits) at (0,1.2) {分片本地\\logits $\ell_i$};
+    \node[stage] (localmax) at (3.2,1.2) {本地最大值\\$L_{\max}^{(i)}$};
+    \node[sync] (gmax) at (6.7,1.2) {阶段 1 P2P 归约\\\texttt{Global\_Max}};
+
+    \node[stage] (localsum) at (0,-1.1) {本地指数和\\$\sum e^{\ell_i-\texttt{Global\_Max}}$};
+    \node[sync] (gsum) at (3.8,-1.1) {阶段 2 P2P 归约\\\texttt{Global\_Sum}};
+    \node[data] (output) at (7.2,-1.1) {归一化\\输出 $p_i$};
+
+    \draw[arrow] (logits) -- (localmax);
+    \draw[arrow] (localmax) -- (gmax);
+    \draw[soft] (gmax.south) |- node[pos=0.25, right, font=\scriptsize\bfseries, text=green!45!black] {共享最大值} (localsum.east);
+    \draw[arrow] (localsum) -- (gsum);
+    \draw[arrow] (gsum) -- (output);
+\end{tikzpicture}%
+}
+\caption[两阶段点对点归约]{DisaggKV 中的两阶段点对点归约协议。系统先交换全局最大值以保证指数计算的数值稳定性，再交换全局指数和完成最终归一化。}
+\label{fig:reduction_protocol}
+\end{figure}
+
+图~\ref{fig:reduction_protocol} 概括了该协议。由于交换的是标量而非大规模张量，通信量得以保持在较小规模。在本文评估配置中，每一步 decode 的同步流量仅为 KB 量级；而若采用主机聚合实现，则需要把较大的 KV 缓存切片重新搬运回主机方向。
+
+\section{通过异步 FIFO 容忍 Fabric 抖动}
+
+基于交换式 Fabric 的分布式执行必须容忍可变延迟。否则，数据包时延变化、瞬时拥塞和时钟域不匹配都可能破坏一个紧耦合的多节点流水线~\cite{hpc_network}。为此，DisaggKV 在端点边界引入异步 FIFO。
+
+这些 FIFO 将本地 PIM 流水线与 Fabric 短时抖动解耦。基于 Gray code 的跨时钟域逻辑，使节点能够吸收短时的抖动突发，而不会破坏归约状态。当同步延迟出现时，节点会在本地停顿，而不是立刻向主机传播错误。DisaggKV 还在此基础上加入了轻量级 XOR 奇偶恢复机制，使缺失的子 flit 能够被重建，而无需退回到粗粒度的主机级重启流程~\cite{cxl_memory_failure}。

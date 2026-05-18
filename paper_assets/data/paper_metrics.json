@@ -1,4 +1,14 @@
 {
+  "_provenance": {
+    "generated_by": "scripts/generate_paper_data.py",
+    "sources": [
+      "simulation_results.csv",
+      "results/cxl_4node_results.json",
+      "results/fault_recovery_results.json",
+      "results/scalability_summary.json"
+    ],
+    "notes": "Ramulator and CXL simulator outputs provide measured counters; throughput-latency and baseline recovery comparisons use the explicit analytical assumptions recorded in each section."
+  },
   "throughput_latency": {
     "x_throughput": [
       100.0,
@@ -32,27 +42,27 @@
       19.159743549881377,
       19.977564407116468,
       24.04661817318951,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500,
-      500
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0,
+      500.0
     ],
     "y_lat_ours": [
       6.07052664578732,
@@ -79,9 +89,19 @@
       323.34618671558246,
       404.59618671558246,
       485.84618671558246,
-      500
+      500.0
     ],
-    "sla_ms": 50.0
+    "sla_ms": 50.0,
+    "model": {
+      "type": "calibrated_queueing_curve",
+      "memory_speedup_from_ramulator_128k": 97.97164432716748,
+      "kv_io_fraction_128k": 0.78,
+      "effective_speedup": 4.386705894652774,
+      "avg_switch_queue_delay_ns": 988.4150820737851,
+      "congestion_penalty": 1.4942075410368925,
+      "host_service_rate_rps": 669.2510729172593,
+      "ours_service_rate_rps": 2935.807626568835
+    }
   },
   "traffic_breakdown": {
     "categories": [
@@ -98,7 +118,14 @@
       3.020071479563777,
       0.28227111853065695,
       0.28227111853065695
-    ]
+    ],
+    "model": {
+      "token_scale_source": "50-request multi-tenant trace",
+      "tokens_in_source_trace": 259728,
+      "bytes_per_access": 64,
+      "host_local_metadata_fraction": 0.05,
+      "host_cxl_protocol_overhead": 1.15
+    }
   },
   "fault_recovery": {
     "methods": [
@@ -110,7 +137,11 @@
       416.384,
       2800.0,
       15000.0
-    ]
+    ],
+    "model": {
+      "ours_source": "results/fault_recovery_results.json recovery_latency_ms.p95",
+      "baseline_values": "analytical comparison constants"
+    }
   },
   "scalability": {
     "x_nodes": [
@@ -125,7 +156,7 @@
       520.0,
       1008.0,
       1216.0,
-      1600
+      1600.0
     ],
     "y_ours": [
       257.4,
@@ -140,6 +171,20 @@
       1040.0,
       2080.0,
       4160.0
-    ]
+    ],
+    "model": {
+      "scheduler_efficiencies": {
+        "1": 0.95,
+        "2": 1.0,
+        "4": 0.8178656316176571,
+        "8": 0.8195618359596093,
+        "16": 0.6486541250616925
+      },
+      "single_node_reference_efficiency": 0.95,
+      "base_throughput_per_node_rps": 260.0,
+      "host_scaling_knee_rps": 1000.0,
+      "host_post_knee_efficiency": 0.2,
+      "host_throughput_cap_rps": 1600.0
+    }
   }
 }

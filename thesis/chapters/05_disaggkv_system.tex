@@ -1,0 +1,115 @@
+\chapter{DisaggKV: Multi-Node Serving System}
+\label{ch:disaggkv_system}
+
+LKC-CXL-PIM covers the one-host, one-endpoint case. A serving cluster adds two complications that the single-endpoint design does not see. First, many requests can share a prompt prefix before their decode histories diverge. Second, the total KV footprint can exceed one endpoint, so a token may need state stored on several CXL-attached memory devices. \textbf{DisaggKV} is the distributed design I use for that setting: it places KV pages according to reuse and performs the softmax reduction inside the endpoint group.
+
+\section{Overview of Multi-Tenant Disaggregation}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.82\textwidth}{!}{%
+\begin{tikzpicture}[
+    host/.style={rectangle, draw=black!55, fill=gray!7, thick, minimum width=3.2cm, minimum height=1.05cm, align=center, rounded corners, font=\small\bfseries},
+    switch/.style={regular polygon, regular polygon sides=6, draw=black!55, fill=gray!10, thick, minimum size=2.35cm, inner sep=0pt, align=center, font=\small\bfseries},
+    pim/.style={rectangle, draw=blue!65!black, fill=blue!7, thick, minimum width=2.1cm, minimum height=0.95cm, align=center, rounded corners, font=\small\bfseries},
+    arrow/.style={thick, -Stealth}
+]
+    \node[host] (host) at (0,0) {Host CPU/GPU\\{\footnotesize Root port}};
+    \node[switch] (switch) at (0,-2.5) {CXL 3.0\\Fabric};
+
+    \node[pim] (n1) at (-3.0,-5.2) {PIM Node 1};
+    \node[pim] (n2) at (0,-5.2) {PIM Node 2};
+    \node[pim] (n3) at (3.0,-5.2) {PIM Node 3};
+
+    \draw[arrow, draw=blue!70!black] (host) -- node[right=0.2cm, font=\scriptsize\bfseries, text=blue!70!black, align=left] {broadcast\\query $\mathbf{Q}$} (switch);
+    \draw[arrow, draw=blue!70!black] (switch) -- (n1);
+    \draw[arrow, draw=blue!70!black] (switch) -- (n2);
+    \draw[arrow, draw=blue!70!black] (switch) -- (n3);
+
+    \draw[arrow, dashed, draw=gray!70, bend left=40] (n1.west) to node[midway, left=0.35cm, font=\scriptsize\bfseries, text=gray!70, align=center] {host-aggregated\\baseline} (host.west);
+    \draw[<->, thick, dashed, draw=green!50!black] (n1.north) to[bend left=25] node[midway, above=0.12cm, font=\scriptsize\bfseries, text=green!45!black] {P2P reduction} (n2.north);
+    \draw[<->, thick, dashed, draw=green!50!black] (n2.north) to[bend left=25] (n3.north);
+\end{tikzpicture}
+}
+\caption[DisaggKV system overview]{Architectural overview of DisaggKV\@. Query vectors are broadcast from the host, while distributed softmax barriers are exchanged directly among CXL-attached PIM nodes.}
+\label{fig:disaggkv_overview}
+\end{figure}
+
+Figure~\ref{fig:disaggkv_overview} marks the main difference from the baseline. In the host-aggregated path, partial attention state returns through the Root Complex before consolidation. Long-context decode then stresses the same host-facing links and switch ports that already limit CXL memory pooling~\cite{cxl_pond}. DisaggKV keeps the host as the scheduler and final consumer, but the maximum and sum needed by softmax are exchanged directly among endpoints.
+
+\section{Hypervisor Locality-Aware Paging}
+
+The generated serving trace gives each page a reuse label. Prefix pages can be read by many sessions, while continuation pages usually become private once generation starts. I feed that label into the placement policy because the two page types have different failure modes: copying a prefix page duplicates shared state, while chasing a private page around the pool creates traffic that rarely pays back later~\cite{splitwise}.
+
+The allocator uses the label directly. Reused prefix pages go to shared nodes so later sessions can attach to the same copy. Continuation pages are spread across the remaining endpoints, mostly to avoid one endpoint becoming the private-history sink. The migration daemon waits until imbalance is persistent before moving private pages, which keeps short-lived rebalancing traffic out of the common path.
+
+Algorithm~\ref{alg:placement} gives the placement rule used by the simulator. The policy is intentionally simple because the report is not trying to invent a full cloud scheduler. Its purpose is to expose the architectural effect of keeping reusable prefix state stable while distributing private continuation state enough to prevent one endpoint from becoming the capacity or service bottleneck.
+
+\begin{algorithm}[htbp]
+\caption{Locality-aware KV-page placement}
+\label{alg:placement}
+\begin{algorithmic}[1]
+\FOR{each newly allocated KV page}
+    \IF{the page belongs to a shared prompt prefix}
+        \STATE Place it on the least-loaded node in the shared-prefix group.
+        \STATE Record the prefix identifier so later requests can reuse the same page.
+    \ELSE
+        \STATE Place it on the least-loaded private node for the owning request.
+        \STATE Bind future continuation pages from the same request to nearby nodes.
+    \ENDIF
+\ENDFOR
+\STATE Periodically rebalance only when private-node load exceeds the migration threshold.
+\end{algorithmic}
+\end{algorithm}
+
+The same rule also keeps metadata movement modest. Prefix pages stay stable because many sessions may reference them, while private pages are allowed to spread because they mostly serve one request. In the modeled workload, this distinction keeps page movement small enough that migration traffic does not drown out the peer-to-peer reduction traffic.
+
+\section{Peer-to-Peer Fabric Synchronization}
+
+Capacity pooling alone does not make sharded attention correct. If each endpoint normalizes only its own logits, the probability mass is split across incompatible local views. Every shard needs the same maximum logit and the same exponential sum before it can produce a normalized contribution~\cite{ring_attention}.
+
+DisaggKV obtains those two values with an endpoint-side two-step reduction. The exchange is deliberately narrow: it does not ship partial tensors when two scalars are enough for stable softmax. In the first phase, each node reports its largest local logit $L_{\max}$, and the endpoint group agrees on \texttt{Global\_Max}. In the second phase, each node evaluates exponentials relative to that shared maximum, contributes its local sum, and receives the final \texttt{Global\_Sum}.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.86\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=1.0cm and 1.0cm,
+    data/.style={rectangle, draw=black!55, fill=gray!7, rounded corners, minimum width=2.7cm, minimum height=0.9cm, align=center, font=\small},
+    stage/.style={rectangle, draw=blue!65!black, fill=blue!7, rounded corners, minimum width=2.8cm, minimum height=0.95cm, align=center, font=\small\bfseries},
+    sync/.style={rectangle, draw=green!45!black, fill=green!8, rounded corners, minimum width=3.1cm, minimum height=0.95cm, align=center, font=\small\bfseries},
+    arrow/.style={-Stealth, thick},
+    soft/.style={-Stealth, thick, dashed, draw=green!45!black}
+]
+    \node[data] (logits) at (0,1.2) {Shard-local\\logits $\ell_i$};
+    \node[stage] (localmax) at (3.2,1.2) {Local maximum\\$L_{\max}^{(i)}$};
+    \node[sync] (gmax) at (6.7,1.2) {Phase 1 P2P reduce\\\texttt{Global\_Max}};
+
+    \node[stage] (localsum) at (0,-1.1) {Local exp sum\\$\sum e^{\ell_i-\texttt{Global\_Max}}$};
+    \node[sync] (gsum) at (3.8,-1.1) {Phase 2 P2P reduce\\\texttt{Global\_Sum}};
+    \node[data] (output) at (7.2,-1.1) {Normalized\\output $p_i$};
+
+    \draw[arrow] (logits) -- (localmax);
+    \draw[arrow] (localmax) -- (gmax);
+    \draw[soft] (gmax.south) |- node[pos=0.25, right, font=\scriptsize\bfseries, text=green!45!black] {shared max} (localsum.east);
+    \draw[arrow] (localsum) -- (gsum);
+    \draw[arrow] (gsum) -- (output);
+\end{tikzpicture}%
+}
+\caption[Two-phase peer-to-peer reduction]{Two-phase peer-to-peer reduction in DisaggKV\@. Nodes first exchange the global maximum for numerically stable exponentiation, then exchange the global exponential sum before final normalization.}
+\label{fig:reduction_protocol}
+\end{figure}
+
+Figure~\ref{fig:reduction_protocol} summarizes the exchange. During the two barriers, only scalar state crosses the fabric, so the evaluated synchronization traffic is measured in kilobytes per decode step. This does not make synchronization free; the endpoints still wait at barriers. It does, however, change the synchronized object from dense KV-derived tensors to the minimum state needed for numerically correct normalization.
+
+\section{Epoch Rules for Missing Shards}
+
+The endpoint group treats each decode step as a short synchronization epoch. During that epoch, every participating node reads a fixed KV-page snapshot and contributes to the same \texttt{Global\_Max} and \texttt{Global\_Sum}. New page allocations are installed only at epoch boundaries, so the reduction protocol does not have to handle a page moving while a token is being normalized.
+
+The epoch tag is not just bookkeeping. It is the rule that prevents a late shard from being counted in the wrong token. If one endpoint reaches the barrier after the others, the group waits for that epoch instead of folding the payload into the next normalization window. In the injected-fault runs, a degraded node loses the reduction payload for that same tag, and the parity-assisted path rebuilds it before the group advances. I keep the fault model narrow: transient sub-flit loss and short endpoint stalls are included, but permanent loss of a memory-pool device is left to a runtime recovery layer outside this artifact.
+
+\section{Clock-Crossing Buffer at the Endpoint}
+
+The CXL-fabric model does not deliver all shard messages in lockstep. Queueing delay and packet-time variation mean that two endpoints can reach the same barrier at slightly different simulated times. Without a boundary buffer, packet jitter, transient congestion, or clock-domain mismatch would show up directly as disruption in the reduction pipeline~\cite{hpc_network}. DisaggKV places asynchronous FIFOs at the endpoint boundary so short timing skew is absorbed before it becomes PIM-side back-pressure.
+
+The FIFO is sized as a boundary buffer, not as a congestion reservoir. It separates fabric timing from endpoint timing and lets the local pipeline absorb short bursts through a Gray-coded clock-domain crossing. If the barrier is still late after that buffering, the endpoint stalls its own reduction state rather than immediately escalating to the host. The parity repair path uses the same boundary: missing sub-flits can be repaired locally, while coarse restart is reserved for failures beyond the modeled scope~\cite{cxl_memory_failure}.

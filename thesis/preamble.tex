@@ -1,0 +1,63 @@
+% --- thesis/preamble.tex ---
+\usepackage{iftex}
+\ifPDFTeX
+    \usepackage[utf8]{inputenc}
+    \usepackage[T1]{fontenc}
+\fi
+\usepackage{fontspec}
+\usepackage{newtxtext}
+\usepackage{newtxmath}
+\newfontfamily\coverfont[
+    Path=/System/Library/Fonts/Supplemental/,
+    UprightFont={Times New Roman.ttf},
+    BoldFont={Times New Roman Bold.ttf},
+    ItalicFont={Times New Roman Italic.ttf},
+    BoldItalicFont={Times New Roman Bold Italic.ttf}
+]{Times New Roman}
+\usepackage{microtype}
+\usepackage{geometry}
+\geometry{a4paper, left=30mm, right=25mm, top=30mm, bottom=30mm}
+
+\usepackage{fancyhdr}
+\setlength{\headheight}{14.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\MakeUppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\let\Bbbk\undefined
+\usepackage{amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{cite}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{subcaption}
+\PassOptionsToPackage{hidelinks}{hyperref}
+
+% TikZ
+\usepackage{tikz}
+\usetikzlibrary{calc,positioning,shapes.geometric,arrows.meta,3d,shadows}
+
+% Hyperref
+\usepackage{hyperref}
+\usepackage{bookmark}
+\hypersetup{pdftitle={Hardware-Software Co-Design for Scalable Long-Context Large Language Models}, pdfauthor={Kaichen Li}}
+\captionsetup{font=small, labelfont=bf}
+\widowpenalty=10000
+\clubpenalty=10000
+\emergencystretch=2em
+\setlist{itemsep=0.25em, topsep=0.35em}
+
+% Line spacing for thesis
+\setstretch{1.5}
